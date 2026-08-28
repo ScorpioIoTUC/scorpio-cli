@@ -8,26 +8,15 @@ make bootstrap
 gh auth login
 ```
 
-Para probar en TestPyPI:
+El siguiente comando construye y publica la release en TestPyPI:
 
 ```bash
 make test-pypi
 ```
 
-Para publicar solamente en PyPI:
+El siguiente comando construye y publica la release en PyPI y GitHub. 
 
-```bash
-make publish-pypi
-```
-
-Para crear solamente el tag y release de GitHub:
-
-```bash
-make tag
-make github-release
-```
-
-Para realizar todo el release:
+Primero, valida el tag a crear (si existe, aborta la publicación), para ello debes asegurarte de que no existan cambios sin confirmar y que la versión en `pyproject.toml` sea nueva. Segundo, sube los nuevos cambios y crea el release. 
 
 ```bash
 make release
