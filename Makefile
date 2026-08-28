@@ -36,7 +36,10 @@ check-clean:
 check-gh:
 	@command -v gh >/dev/null || \
 		(echo "Error: GitHub CLI is not installed."; exit 1)
-	@gh auth status
+	@gh api user >/dev/null || \
+		(echo "Error: the active GitHub CLI account is not authenticated."; exit 1)
+	@gh repo view ScorpioIoTUC/scorpio-cli >/dev/null || \
+		(echo "Error: the active GitHub account cannot access ScorpioIoTUC/scorpio-cli."; exit 1)
 
 test-pypi: build check
 	$(PYTHON) -m twine upload --repository testpypi dist/*
