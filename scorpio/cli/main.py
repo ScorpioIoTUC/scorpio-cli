@@ -1,21 +1,11 @@
 import argparse
 import threading
 import webbrowser
-import json
-import shutil
-import tempfile
-import urllib.request
-import zipfile
-from pathlib import Path
+
 
 from scorpio.server.main import run_server
 from scorpio.server.config import SERVER_URL
 from scorpio.cli.check_last_release import install_latest_release
-
-REPOSITORY = "ScorpioIoTUC/Scorpio-Project"
-RELEASE_API = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
-
-INSTALL_DIR = Path.home() / ".local" / "share" / "scorpio" / "Scorpio-Project"
 
 
 def main():

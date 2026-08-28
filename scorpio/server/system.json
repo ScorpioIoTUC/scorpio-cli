@@ -2,7 +2,7 @@
     "steps": [
         {
             "name": "initial_dependencies",
-            "status": true,
+            "status": false,
             "command": "make setup-all"
         },
         {
