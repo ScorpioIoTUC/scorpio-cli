@@ -1,0 +1,22 @@
+{
+    "steps": [
+        {
+            "name": "initial_dependencies",
+            "status": true,
+            "command": "make setup-all"
+        },
+        {
+            "name": "system_reboot",
+            "status": false,
+            "command": "sudo reboot"
+        },
+        {
+            "name": "docker_dependencies",
+            "status": false,
+            "command": "make setup-docker"
+        }
+    ],
+    "system_is_up": {
+        "status": false
+    }
+}
