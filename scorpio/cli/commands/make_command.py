@@ -1,6 +1,7 @@
 from scorpio.cli.commands.commands_types import CommandContract
 from scorpio.cli.clients.github.github_contract import GithubContract
 import subprocess
+import sys
 
 
 class MakeCommand(CommandContract):
@@ -20,11 +21,19 @@ class MakeCommand(CommandContract):
         else:
             directory, _ = self.github_client.ensure_project_installed()
 
-        subprocess.run(
-            ["make", self.target],
-            cwd=directory,
-            check=True,
-        )
+        try:
+            subprocess.run(
+                ["make", self.target],
+                cwd=directory,
+                check=True,
+            )
+        except subprocess.CalledProcessError as error:
+            print(
+                f"Scorpio command 'make {self.target}' failed with "
+                f"exit code {error.returncode}. See the output above for the cause.",
+                file=sys.stderr,
+            )
+            raise SystemExit(error.returncode) from None
 
 
 class ResetCommand(CommandContract):

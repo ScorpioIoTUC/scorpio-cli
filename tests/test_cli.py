@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -60,6 +61,23 @@ class ScorpioCLITests(unittest.TestCase):
 
         github_client.ensure_project_installed.assert_called_once_with()
         github_client.ensure_latest_release.assert_not_called()
+
+    @patch("scorpio.cli.commands.make_command.subprocess.run")
+    def test_make_failure_exits_without_python_traceback(self, run: Mock) -> None:
+        github_client = Mock()
+        github_client.ensure_project_installed.return_value = (
+            Path("/tmp/project"),
+            "1.0",
+        )
+        run.side_effect = subprocess.CalledProcessError(
+            returncode=2,
+            cmd=["make", "status"],
+        )
+
+        with self.assertRaises(SystemExit) as context:
+            MakeCommand(github_client, "status").execute()
+
+        self.assertEqual(context.exception.code, 2)
 
 
 class GithubClientTests(unittest.TestCase):
