@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scorpio-cli"
-version = "0.1.0.2"
+version = "0.1.0.3"
 description = "Scorpio IoT command-line interface"
 requires-python = ">=3.10"
 authors = [
@@ -14,7 +14,9 @@ authors = [
 maintainers = [
     { name = "Pedro Zavala", email = "pedropablozavalatejos@gmail.com" },
 ]
-dependencies = []
+dependencies = [
+    "paramiko>=3.5,<4",
+]
 
 [project.scripts]
 scorpio = "scorpio.cli.main:main"

@@ -1,74 +1,80 @@
 import argparse
-import os
-import subprocess
-import threading
-import webbrowser
 
-from scorpio.cli.config import ALLOWED_TARGETS, COMMAND_DESCRIPTIONS
-from scorpio.cli.check_last_release import (
-    ensure_latest_release,
-    ensure_project_installed,
+
+from scorpio.cli.clients.github import GithubClient
+from scorpio.cli.config import (
+    INSTALL_DIR,
+    INSTALL_METADATA_PATH,
+    REPOSITORY,
 )
-from scorpio.cli.get_hostname_data import get_local_ip
-from scorpio.server.config import SERVER_URL
-from scorpio.server.main import run_server
+from .commands.make_command import MakeCommand, ResetCommand
+from .commands.ui_command import UICommand
+from .commands.commands_types import (
+    CommandContract,
+    COMMAND_DEFINITIONS,
+    CommandDefinition,
+    CommandKind,
+)
 
 
-def confirm_reset():
-    print("WARNING: this will stop Scorpio and delete its Docker volumes.")
-    print("MQTT data, MQTT logs, and the SQLite database will be permanently removed.")
-    try:
-        confirmation = input("Type 'reset' to continue: ")
-    except (EOFError, KeyboardInterrupt):
-        print("\nReset cancelled.")
-        return False
-
-    if confirmation.strip().lower() != "reset":
-        print("Reset cancelled.")
-        return False
-    return True
-
-
-def main():
-    local_ip = get_local_ip()
-    network_url = f"http://{local_ip}:8000"
-    parser = argparse.ArgumentParser(prog="scorpio")
-    subcommands = parser.add_subparsers(dest="command", required=True)
-    # Add subcommand for ui initialization
-    subcommands.add_parser(
-        "ui",
-        help="Start the Scorpio setup web interface.",
-        description="Start the local Scorpio setup server and web interface.",
-    )
-    # Add subcommands for manual configuration
-    for command in ALLOWED_TARGETS:
-        description = COMMAND_DESCRIPTIONS[command]
-        subcommands.add_parser(
-            command,
-            help=description,
-            description=description,
+class ScorpioCLI:
+    def __init__(self):
+        self.github_client = GithubClient(
+            repository=REPOSITORY,
+            install_directory=INSTALL_DIR,
+            metadata_path=INSTALL_METADATA_PATH,
         )
-    args = parser.parse_args()
+        self.definitions = COMMAND_DEFINITIONS
+        self.parser = self._create_parser()
+        self.commands = self._create_commands()
 
-    if args.command == "ui":
-        project_directory, version = ensure_latest_release()
-        print(f"Scorpio {version} instalado en {project_directory}")
-        if os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"):
-            threading.Timer(0.5, lambda: webbrowser.open(SERVER_URL)).start()
-        else:
-            print(f"Abre la interfaz desde otro equipo: {network_url}")
-        run_server()
-    elif args.command in ALLOWED_TARGETS:
-        if args.command == "reset" and not confirm_reset():
-            return
+    def run(self) -> None:
+        args = self.parser.parse_args()
+        command = self.commands.get(args.command)
+        if command is None:
+            self.parser.error(f"Unknown command: {args.command}")
+        command.execute()
 
-        project_directory, _ = ensure_project_installed()
-        target = ALLOWED_TARGETS[args.command]
-        subprocess.run(
-            ["make", target],
-            cwd=project_directory,
-            check=True,
+    def _create_command(self, definition: CommandDefinition) -> CommandContract:
+        if definition.kind is CommandKind.UI:
+            return UICommand(self.github_client)
+        if definition.kind in (CommandKind.MAKE, CommandKind.RESET):
+            if definition.target is None:
+                raise ValueError(f"Command '{definition.name}' requires a Make target.")
+
+            command: CommandContract = MakeCommand(
+                github_client=self.github_client,
+                target=definition.target,
+                ensure_latest=definition.requires_latest_release,
+            )
+
+            if definition.kind is CommandKind.RESET:
+                command = ResetCommand(command)
+            return command
+        raise ValueError(f"Unsupported command kind: {definition.kind}")
+
+    def _create_commands(self) -> dict[str, CommandContract]:
+        return {
+            command.name: self._create_command(command) for command in self.definitions
+        }
+
+    def _create_parser(self):
+        parser = argparse.ArgumentParser(
+            prog="scorpio",
+            description="Scorpio IoT command-line interface.",
         )
+        subparsers = parser.add_subparsers(dest="command", required=True)
+        for definition in self.definitions:
+            subparsers.add_parser(
+                definition.name,
+                help=definition.description,
+                description=definition.description,
+            )
+        return parser
+
+
+def main() -> None:
+    ScorpioCLI().run()
 
 
 if __name__ == "__main__":

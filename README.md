@@ -2,6 +2,7 @@
 
 Command-line installer and local setup interface for Scorpio IoT UC.
 
+# Installation
 ## Install on Debian or Raspberry Pi OS
 
 Debian-based systems protect the system Python environment. Install Scorpio CLI
@@ -14,18 +15,6 @@ pipx ensurepath
 source ~/.profile
 pipx install scorpio-cli
 ```
-
-If the `scorpio` command is not available immediately after `pipx ensurepath`,
-log out and sign in again.
-
-Start the setup interface:
-
-```bash
-scorpio ui
-```
-
-On a headless Raspberry Pi, the command prints the network address to open from
-another computer.
 
 
 ## Commands
