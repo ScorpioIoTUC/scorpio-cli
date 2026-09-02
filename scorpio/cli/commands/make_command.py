@@ -8,7 +8,7 @@ class MakeCommand(CommandContract):
     def __init__(
         self,
         github_client: GithubContract,
-        target: str,
+        target: str | list[str],
         ensure_latest: bool = False,
     ) -> None:
         self.github_client = github_client
@@ -22,11 +22,20 @@ class MakeCommand(CommandContract):
             directory, _ = self.github_client.ensure_project_installed()
 
         try:
-            subprocess.run(
-                ["make", self.target],
-                cwd=directory,
-                check=True,
-            )
+            # Validate if the target is a sequence of commands or a single command
+            if isinstance(self.target, list):
+                for t in self.target:
+                    subprocess.run(
+                        ["make", t],
+                        cwd=directory,
+                        check=True,
+                    )
+            else:
+                subprocess.run(
+                    ["make", self.target],
+                    cwd=directory,
+                    check=True,
+                )
         except subprocess.CalledProcessError as error:
             print(
                 f"Scorpio command 'make {self.target}' failed with "

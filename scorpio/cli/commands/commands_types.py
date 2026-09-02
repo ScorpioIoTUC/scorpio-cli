@@ -24,7 +24,7 @@ class CommandDefinition:
     name: str
     description: str
     kind: CommandKind
-    target: str | None = None
+    target: str | list[str] | None = None
     requires_latest_release: bool = False
 
 
@@ -36,7 +36,14 @@ COMMAND_DEFINITIONS = (
     ),
     CommandDefinition(
         name="setup",
-        target="setup-all",
+        target=["setup-all", "setup-docker"],
+        description="Install Scorpio host dependencies and configure the Docker infrastructure.",
+        kind=CommandKind.MAKE,
+        requires_latest_release=True,
+    ),
+    CommandDefinition(
+        name="setup-host",
+        target="setup-host",
         description="Install Scorpio host dependencies.",
         kind=CommandKind.MAKE,
         requires_latest_release=True,
@@ -83,5 +90,11 @@ COMMAND_DEFINITIONS = (
         target="delete-all",
         description="Stop Scorpio and permanently remove its Docker data.",
         kind=CommandKind.RESET,
+    ),
+    CommandDefinition(
+        name="connect2db",
+        target="sqlite-shell",
+        description="Connect to the Scorpio SQLite database.",
+        kind=CommandKind.MAKE,
     ),
 )

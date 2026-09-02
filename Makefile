@@ -73,3 +73,7 @@ release: check-clean check-gh build check
 		--title "Scorpio CLI $(TAG)" \
 		--generate-notes
 	$(PYTHON) -m twine upload dist/*
+
+tailscale: 
+	@echo "Starting Tailscale..."
+	sudo tailscale up
