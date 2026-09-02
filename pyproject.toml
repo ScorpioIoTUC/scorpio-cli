@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scorpio-cli"
-version = "0.1.0.4"
+version = "0.1.0.5"
 description = "Scorpio IoT command-line interface"
+readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "Pedro Zavala", email = "pedropablozavalatejos@gmail.com" },
@@ -24,3 +25,7 @@ scorpio = "scorpio.cli.main:main"
 [tool.setuptools.package-data]
 "scorpio.ui" = ["*.html", "*.css", "*.js"]
 "scorpio.server" = ["*.json"]
+
+[project.urls]
+Homepage = "https://github.com/ScorpioIoTUC/scorpio-cli/"
+Issues = "https://github.com/ScorpioIoTUC/scorpio-cli/issues"
