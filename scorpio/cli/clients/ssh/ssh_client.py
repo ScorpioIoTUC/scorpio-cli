@@ -24,9 +24,9 @@ class SSHClient(SSHContract):
                 timeout=10,
             )
         except paramiko.AuthenticationException:
-            raise SSHException("Authentication failed, please verify your credentials.")
+            raise ConnectionError("Authentication failed, please verify your credentials.")
         except paramiko.SSHException as sshException:
-            raise SSHException(f"Unable to establish SSH connection: {sshException}")
+            raise ConnectionError(f"Unable to establish SSH connection: {sshException}")
 
     def execute_command(self, command: str) -> dict:
         _, stdout, stderr = self.client.exec_command(command)

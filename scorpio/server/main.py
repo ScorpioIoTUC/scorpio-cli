@@ -1,51 +1,39 @@
+from collections.abc import Callable
 import json
 import subprocess
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from functools import partial
 from http import HTTPStatus
 import logging
-from scorpio.server.config import PORT, SERVER_URL, UI_URL, UI_DIR, SYSTEM_JSON_PATH
-
+from scorpio.server.config import (
+    PORT,
+    SERVER_URL,
+    UI_URL,
+    UI_DIR,
+    SERVER_STORAGE_PATH,
+    SERVER_STORAGE_INIT_DATA,
+)
+from scorpio.cli.clients.ssh.ssh_client import SSHClient
+from scorpio.cli.clients.github.github_contract import GithubContract
+from scorpio.cli.host.host import Host
+from datetime import datetime
 
 # Logger configs
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+
 class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        self.system_json = self._load_system_json()
+    def __init__(
+        self,
+        *args,
+        github_client: GithubContract,
+        execute_command: Callable[[str], None],
+        **kwargs,
+    ):
+        self.github_client = github_client
+        self.execute_command = execute_command
         super().__init__(*args, directory=str(UI_DIR), **kwargs)
-
-    def _load_system_json(self) -> dict:
-        # Loading system json from its path
-        with open(SYSTEM_JSON_PATH, "r") as f:
-            return json.load(f)
-
-    def _update_system_json(self):
-        # Update the system json with new data
-        current_data = self.system_json
-        with open(SYSTEM_JSON_PATH, "w") as f:
-            json.dump(current_data, f, indent=4)
-
-    def _get_steps_index(self) -> dict:
-        # Create a dictionary with the index of each step in the steps array
-        return {
-            item["name"]: index for index, item in enumerate(self.system_json["steps"])
-        }
-
-    def _check_previous_steps(self, step_name: str) -> bool:
-        # first we get the index of the step in the steps array
-        steps_index = self._get_steps_index()
-        step_index = steps_index[step_name]
-        # then we get the steps array
-        steps = self.system_json["steps"]
-        # then we check if all the previous steps are completed
-        previous_steps = [
-            step for step in steps[:step_index] if step["status"] == False
-        ]
-        if previous_steps:
-            logging.warning("Previous steps not completed: %s", previous_steps)
-            return False
-        return True
 
     def _body(self) -> dict:
         content_length = int(self.headers.get("Content-Length", 0))
@@ -55,91 +43,127 @@ class Handler(SimpleHTTPRequestHandler):
     def _get_default(self) -> dict:
         return {"message": "Welcome to the Scorpio setup server."}
 
-    def _get_system_state(self) -> dict:
-        logging.info("Getting system state")
+    def _get_storage(self) -> dict:
+        if not SERVER_STORAGE_PATH.exists():
+            return {}
+        with open(SERVER_STORAGE_PATH, "r") as f:
+            return json.load(f)
 
-        steps = [item["status"] for item in self.system_json["steps"]]
-        if all(step for step in steps):
-            # The system is fully set up, return completed state
-            return {"completed": True, "current_step": None}
-        # The system is not fully set up, return the current step
-        current_step = self._get_current_step()
-        return {"completed": False, **current_step}
+    def _update_storage(self, data: dict):
+        with open(SERVER_STORAGE_PATH, "w") as f:
+            json.dump(data, f, indent=4)
 
-    def _get_current_step(self) -> dict:
-        logging.info("Getting current step")
-        steps = [(item["name"], item["status"]) for item in self.system_json["steps"]]
-        # find the first step that is not completed
-        for step in steps:
-            if not step[1]:
-                return {"current_step": step[0]}
-        return {"current_step": "All steps completed"}
+    def _get_system_version(self) -> dict:
+        scorpio_latest_release = self.github_client.get_latest_release()
+        return {
+            "scorpio_cli": Host.get_package_version("scorpio-cli"),
+            "scorpio_project": scorpio_latest_release.version,
+        }
+
+    def _ssh_set_is_active(self, hostname: str, username: str, password: str):
+        storage_data = self._get_storage()
+        if not storage_data.get("ssh"):
+            storage_data["ssh"] = {}
+
+        storage_data["ssh"]["is_active"] = True
+        storage_data["ssh"]["hostname"] = hostname
+        storage_data["ssh"]["username"] = username
+        storage_data["ssh"]["password"] = password
+        self._update_storage(storage_data)
+
+    def _ssh_reset(self):
+        storage_data = self._get_storage()
+        storage_data["ssh"]["is_active"] = False
+        storage_data["ssh"]["hostname"] = ""
+        storage_data["ssh"]["username"] = ""
+        storage_data["ssh"]["password"] = ""
+        self._update_storage(storage_data)
+
+    def _ssh_login(self, body: dict) -> dict:
+        username = body.get("username")
+        password = body.get("password")
+        hostname = body.get("hostname")
+        if not username or not password or not hostname:
+            return {
+                "error": "Missing required fields: username, password, and hostname are required."
+            }
+
+        ssh_client = SSHClient(hostname=hostname, username=username, password=password)
+        try:
+            ssh_client.connect()
+            self._ssh_set_is_active(hostname, username, password)
+
+        except ConnectionError as e:
+            return {"error": str(e)}
+
+        # For demonstration purposes, we'll just return a success message.
+        return {"message": f"SSH login successful for user {username}."}
+
+    def _ssh_logout(self) -> tuple[dict, HTTPStatus]:
+        storage = self._get_storage()
+        if not storage.get("ssh") or not storage["ssh"].get("is_active"):
+            return {"error": "No active SSH session found."}, HTTPStatus.BAD_REQUEST
+        self._ssh_reset()
+        return {"message": "SSH logout successful."}, HTTPStatus.OK
+
+    def _setup_is_completed(self) -> bool:
+        storage = self._get_storage()
+        if storage.get("setup") is None:
+            return False
+
+        setup_completed = storage["setup"].get("completed", False)
+        return setup_completed
+
+    def _scorpio_setup(self, body: dict) -> tuple[dict, HTTPStatus]:
+        if self._setup_is_completed():
+            return {
+                "error": "Scorpio setup has already been completed."
+            }, HTTPStatus.BAD_REQUEST
+
+        self.execute_command("setup")
+
+        storage = self._get_storage()
+        scorpio_proj_version = self.github_client.get_latest_release().version
+        scorpio_cli_version = Host.get_package_version("scorpio-cli")
+        timezone = Host.get_local_timezone()
+        completed_at = datetime.now(tz=Host.get_local_timezone()).isoformat()
+        storage["setup"] = {
+            "completed": True,
+            "completedAt": completed_at,
+            "timezone": str(timezone),
+            "version": {
+                "scoprio_project": scorpio_proj_version,
+                "scorpio_cli": scorpio_cli_version,
+            },
+        }
+        self._update_storage(storage)
+
+        return {"message": "Scorpio setup completed successfully."}, HTTPStatus.OK
 
     def do_GET(self):
-        if self.path == "/api/status":
-            return self.send_json(self._get_system_state(), HTTPStatus.OK)
-        elif self.path == "/api/current_step":
-            return self.send_json(self._get_current_step(), HTTPStatus.OK)
+        if self.path == "/version":
+            self.send_json(self._get_system_version())
         else:
-            return super().do_GET()
+            super().do_GET()
 
     def do_POST(self):
-        if self.path != "/api/confirm_step":
-            self.send_json({"error": "Invalid route."}, HTTPStatus.NOT_FOUND)
-            return
-
         body = self._body()
-        step = body.get("step", "")
-        steps_names = [step["name"] for step in self.system_json["steps"]]
+        if self.path == "/ssh/login":
+            response = self._ssh_login(body)
+            status = (
+                HTTPStatus.OK if "error" not in response else HTTPStatus.BAD_REQUEST
+            )
+            self.send_json(response, status=status)
+        elif self.path == "/ssh/logout":
+            response, status = self._ssh_logout()
+            self.send_json(response, status=status)
 
-        # Review if the step exist
-        if step not in steps_names:
-            self.send_json(
-                {"error": "Invalid step.", "steps": steps_names}, HTTPStatus.NOT_FOUND
-            )
-            return
-        # Review if the step is already completed
-        step_data = next(
-            item for item in self.system_json["steps"] if item["name"] == step
-        )
-        if step_data["status"]:
-            next_step = self._get_current_step().get("current_step")
-            self.send_json(
-                {"error": "Step is already completed.", "next_step": next_step},
-                HTTPStatus.BAD_REQUEST,
-            )
-            return
+        elif self.path == "/scorpio/setup":
+            response, status = self._scorpio_setup(body)
+            self.send_json(response, status=status)
 
-        # Review if previous steps are completed
-        if not self._check_previous_steps(step):
-            self.send_json(
-                {"error": "Previous steps are not completed."},
-                HTTPStatus.BAD_REQUEST,
-            )
-            return
-
-        # Execute the command associated with the step
-        command = step_data["command"]
-        try:
-            logging.info("Executing command for step '%s': %s", step, command)
-            logging.info("Mocking command ...")
-            # subprocess.run(command, shell=True, check=True)
-
-            # Extract the step index and update the system json with the new status
-            step_index = self._get_steps_index()[step]
-            step_data["status"] = True
-            self.system_json["steps"][step_index] = step_data
-            self._update_system_json()
-            self.send_json(
-                {"message": f"Step '{step}' executed successfully."}, HTTPStatus.OK
-            )
-        except subprocess.CalledProcessError as e:
-            logging.error("Error executing command for step '%s': %s", step, e)
-            self.send_json(
-                {"error": f"Error executing step '{step}': {e}"},
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-            return
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
     def send_json(self, payload, status=200):
         body = json.dumps(payload).encode()
@@ -156,10 +180,19 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-def run_server():
+def ensure_server_storage():
+    if not SERVER_STORAGE_PATH.parent.exists():
+        SERVER_STORAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not SERVER_STORAGE_PATH.exists():
+        with open(SERVER_STORAGE_PATH, "w") as f:
+            json.dump(SERVER_STORAGE_INIT_DATA, f, indent=4)
+
+
+def run_server(github_client: GithubContract, execute_command: Callable[[str], None]):
+    ensure_server_storage()
+    handler = partial(
+        Handler, github_client=github_client, execute_command=execute_command
+    )
     logging.info("Server started at %s", SERVER_URL)
-    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
 
-
-if __name__ == "__main__":
-    run_server()
+    ThreadingHTTPServer(("0.0.0.0", PORT), handler).serve_forever()

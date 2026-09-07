@@ -10,10 +10,12 @@ class MakeCommand(CommandContract):
         github_client: GithubContract,
         target: str | list[str],
         ensure_latest: bool = False,
+        name: str | None = None,
     ) -> None:
         self.github_client = github_client
         self.target = target
         self.ensure_latest = ensure_latest
+        self.name = name
 
     def execute(self) -> None:
         if self.ensure_latest:
@@ -25,11 +27,12 @@ class MakeCommand(CommandContract):
             # Validate if the target is a sequence of commands or a single command
             if isinstance(self.target, list):
                 for t in self.target:
-                    subprocess.run(
-                        ["make", t],
-                        cwd=directory,
-                        check=True,
-                    )
+                    continue
+                    # subprocess.run(
+                    #     ["make", t],
+                    #     cwd=directory,
+                    #     check=True,
+                    # )
             else:
                 subprocess.run(
                     ["make", self.target],

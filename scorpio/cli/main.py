@@ -1,20 +1,27 @@
 import argparse
-
+import os
+import json
 
 from scorpio.cli.clients.github import GithubClient
 from scorpio.cli.config import (
     INSTALL_DIR,
     INSTALL_METADATA_PATH,
     REPOSITORY,
+    STORAGE_PATH,
 )
-from .commands.make_command import MakeCommand, ResetCommand
-from .commands.ui_command import UICommand
-from .commands.commands_types import (
+from .commands import (
+    MakeCommand,
+    ResetCommand,
+    UICommand,
+    VersionCommand,
     CommandContract,
-    COMMAND_DEFINITIONS,
     CommandDefinition,
     CommandKind,
+    COMMAND_DEFINITIONS,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ScorpioCLI:
@@ -29,15 +36,28 @@ class ScorpioCLI:
         self.commands = self._create_commands()
 
     def run(self) -> None:
+        self._ensure_data_storage()
+
         args = self.parser.parse_args()
-        command = self.commands.get(args.command)
+        self.execute_command(args.command)
+
+    def execute_command(self, command_name: str) -> None:
+        command = self.commands.get(command_name)
         if command is None:
-            self.parser.error(f"Unknown command: {args.command}")
+            raise ValueError(f"Unknown command: {command_name}")
         command.execute()
+
+    def _ensure_data_storage(self):
+        if not STORAGE_PATH.parent.exists():
+            STORAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not STORAGE_PATH.exists():
+            with open(STORAGE_PATH, "w") as f:
+                json.dump({}, f, indent=4)
 
     def _create_command(self, definition: CommandDefinition) -> CommandContract:
         if definition.kind is CommandKind.UI:
-            return UICommand(self.github_client)
+            return UICommand(self.github_client, self.execute_command)
+
         if definition.kind in (CommandKind.MAKE, CommandKind.RESET):
             if definition.target is None:
                 raise ValueError(f"Command '{definition.name}' requires a Make target.")
@@ -46,11 +66,17 @@ class ScorpioCLI:
                 github_client=self.github_client,
                 target=definition.target,
                 ensure_latest=definition.requires_latest_release,
+                name=definition.name,
             )
 
             if definition.kind is CommandKind.RESET:
                 command = ResetCommand(command)
             return command
+
+        if definition.kind is CommandKind.VERSION:
+            command: CommandContract = VersionCommand(github_client=self.github_client)
+            return command
+
         raise ValueError(f"Unsupported command kind: {definition.kind}")
 
     def _create_commands(self) -> dict[str, CommandContract]:

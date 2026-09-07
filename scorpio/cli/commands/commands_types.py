@@ -17,6 +17,7 @@ class CommandKind(Enum):
     UI = "ui"
     MAKE = "make"
     RESET = "reset"
+    VERSION = "version"
 
 
 @dataclass(frozen=True)
@@ -96,5 +97,10 @@ COMMAND_DEFINITIONS = (
         target="sqlite-shell",
         description="Connect to the Scorpio SQLite database.",
         kind=CommandKind.MAKE,
+    ),
+    CommandDefinition(
+        name="version",
+        description="Show the current version of Scorpio and the CLI.",
+        kind=CommandKind.VERSION,
     ),
 )
