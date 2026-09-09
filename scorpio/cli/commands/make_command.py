@@ -2,6 +2,7 @@ from scorpio.cli.commands.commands_types import CommandContract
 from scorpio.cli.clients.github.github_contract import GithubContract
 import subprocess
 import sys
+from collections.abc import Callable
 
 
 class MakeCommand(CommandContract):
@@ -10,12 +11,14 @@ class MakeCommand(CommandContract):
         github_client: GithubContract,
         target: str | list[str],
         ensure_latest: bool = False,
+        name: str | None = None,
     ) -> None:
         self.github_client = github_client
         self.target = target
         self.ensure_latest = ensure_latest
+        self.name = name
 
-    def execute(self) -> None:
+    def execute(self, output_callback: Callable[[str], None] | None = None) -> None:
         if self.ensure_latest:
             directory, _ = self.github_client.ensure_latest_release()
         else:
@@ -25,17 +28,9 @@ class MakeCommand(CommandContract):
             # Validate if the target is a sequence of commands or a single command
             if isinstance(self.target, list):
                 for t in self.target:
-                    subprocess.run(
-                        ["make", t],
-                        cwd=directory,
-                        check=True,
-                    )
+                    self._run_make(t, directory, output_callback)
             else:
-                subprocess.run(
-                    ["make", self.target],
-                    cwd=directory,
-                    check=True,
-                )
+                self._run_make(self.target, directory, output_callback)
         except subprocess.CalledProcessError as error:
             print(
                 f"Scorpio command 'make {self.target}' failed with "
@@ -43,6 +38,32 @@ class MakeCommand(CommandContract):
                 file=sys.stderr,
             )
             raise SystemExit(error.returncode) from None
+
+    def _run_make(
+        self,
+        target: str,
+        directory: str,
+        output_callback: Callable[[str], None] | None,
+    ) -> None:
+        process = subprocess.Popen(
+            ["make", target],
+            cwd=directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+
+        assert process.stdout is not None
+
+        for line in process.stdout:
+            print(line, end="")
+            if output_callback is not None:
+                output_callback(line.rstrip("\n"))
+
+        return_code = process.wait()
+        if return_code != 0:
+            raise subprocess.CalledProcessError(return_code, ["make", target])
 
 
 class ResetCommand(CommandContract):

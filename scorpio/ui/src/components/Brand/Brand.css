@@ -1,0 +1,54 @@
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    color: var(--color-ink);
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.brand--inverted {
+    color: white;
+}
+
+.brand__mark {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid currentColor;
+    border-radius: .65rem;
+}
+
+.brand__mark span {
+    position: absolute;
+    width: .25rem;
+    height: .25rem;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.brand__mark span:first-child {
+    transform: translate(-.38rem, .22rem);
+}
+
+.brand__mark span:nth-child(2) {
+    transform: translate(0, -.35rem);
+}
+
+.brand__mark span:last-child {
+    transform: translate(.4rem, .28rem);
+}
+
+.brand__suffix {
+    margin-left: -.25rem;
+    color: var(--color-muted);
+    font-weight: 650;
+    letter-spacing: .05em;
+}
+
+.brand--inverted .brand__suffix {
+    color: rgba(255, 255, 255, .68);
+}

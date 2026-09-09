@@ -34,7 +34,7 @@ class GithubClient(GithubContract):
 
     def get_latest_release(self) -> Release:
         url = f"{self.api_url}/releases/latest"
-        logger.info("Checking latest Scorpio release from %s", url)
+        logger.debug("Checking latest Scorpio release from %s", url)
         request = urllib.request.Request(
             url,
             headers={"User-Agent": self.user_agent},
@@ -47,7 +47,7 @@ class GithubClient(GithubContract):
             version=payload["tag_name"],
             download_url=payload["zipball_url"],
         )
-        logger.info("Latest Scorpio release is %s", release.version)
+        logger.debug("Latest Scorpio release is %s", release.version)
         return release
 
     def download_release(self, release: Release, destination: Path) -> Path:
@@ -58,7 +58,7 @@ class GithubClient(GithubContract):
             headers={"User-Agent": self.user_agent},
         )
 
-        logger.info("Downloading Scorpio %s", release.version)
+        logger.debug("Downloading Scorpio %s", release.version)
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             with destination.open("wb") as archive:
                 shutil.copyfileobj(response, archive)
@@ -92,7 +92,7 @@ class GithubClient(GithubContract):
         installed_version = self.release_installer.installed_version
 
         if self.release_installer.is_installed and installed_version == release.version:
-            logger.info("Scorpio %s is already up to date", release.version)
+            logger.debug("Scorpio %s is already up to date", release.version)
             return self.release_installer.install_directory, release.version
 
         if self.release_installer.is_installed and installed_version is None:
@@ -103,7 +103,7 @@ class GithubClient(GithubContract):
             return self.release_installer.install(release)
 
         if installed_version:
-            logger.info(
+            logger.debug(
                 "Updating Scorpio from %s to %s",
                 installed_version,
                 release.version,

@@ -1,6 +1,7 @@
 from .ssh_contract import SSHContract
 import paramiko
 from .ssh_types import SSHException
+from collections.abc import Iterator
 
 
 class SSHClient(SSHContract):
@@ -24,9 +25,9 @@ class SSHClient(SSHContract):
                 timeout=10,
             )
         except paramiko.AuthenticationException:
-            raise SSHException("Authentication failed, please verify your credentials.")
+            raise ConnectionError("Authentication failed, please verify your credentials.")
         except paramiko.SSHException as sshException:
-            raise SSHException(f"Unable to establish SSH connection: {sshException}")
+            raise ConnectionError(f"Unable to establish SSH connection: {sshException}")
 
     def execute_command(self, command: str) -> dict:
         _, stdout, stderr = self.client.exec_command(command)
@@ -36,6 +37,21 @@ class SSHClient(SSHContract):
             "stdout": stdout.read().decode(),
             "stderr": stderr.read().decode(),
         }
+
+    def execute_streaming(self, command: str) -> Iterator[str]:
+        _, stdout, stderr = self.client.exec_command(command, get_pty=True)
+        try:
+            for line in iter(stdout.readline, ""):
+                yield line.rstrip("\n")
+
+            exit_code = stdout.channel.recv_exit_status()
+            if exit_code != 0:
+                error = stderr.read().decode().strip()
+                raise RuntimeError(
+                    error or f"Remote command failed with code {exit_code}"
+                )
+        finally:
+            stdout.channel.close()
 
     def close_connection(self) -> None:
         """Close the SSH connection."""

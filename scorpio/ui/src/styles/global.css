@@ -1,0 +1,49 @@
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-width: 320px;
+    min-height: 100%;
+    background: var(--color-background);
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    background: radial-gradient(circle at 8% 12%, rgba(87, 126, 215, .1), transparent 26rem), radial-gradient(circle at 90% 88%, rgba(116, 76, 184, .1), transparent 25rem), var(--color-background);
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.eyebrow {
+    color: var(--color-primary);
+    font-size: .67rem;
+    font-weight: 850;
+    letter-spacing: .16em;
+}
+
+.eyebrow--light {
+    color: rgba(255, 255, 255, .62);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
