@@ -20,6 +20,7 @@ from .commands import (
     COMMAND_DEFINITIONS,
 )
 import logging
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +42,18 @@ class ScorpioCLI:
         args = self.parser.parse_args()
         self.execute_command(args.command)
 
-    def execute_command(self, command_name: str) -> None:
+    def execute_command(
+        self,
+        command_name: str,
+        output_callback: Callable[[str], None] | None = None,
+    ) -> None:
         command = self.commands.get(command_name)
         if command is None:
             raise ValueError(f"Unknown command: {command_name}")
-        command.execute()
+        if isinstance(command, MakeCommand):
+            command.execute(output_callback=output_callback)
+        else:
+            command.execute()
 
     def _ensure_data_storage(self):
         if not STORAGE_PATH.parent.exists():
