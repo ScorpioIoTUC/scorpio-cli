@@ -13,6 +13,9 @@ export type SetupStatus = {
   error: string | null;
   startedAt: string | null;
   finishedAt: string | null;
+  completedAt?: string | null;
+  timezone?: string | null;
+  version?: Record<string, string> | null;
   lastLog: SetupLog | null;
   logs: SetupLog[];
 };

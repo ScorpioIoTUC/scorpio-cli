@@ -39,6 +39,13 @@ export function stopInfrastructure(): Promise<{ message: string }> {
   return requestJson("/scorpio/stop");
 }
 
+export function rebootHost(): Promise<{ message: string }> {
+  return requestJson("/scorpio/reboot", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export function subscribeToDockerLogs(
   onLog: (event: DockerLogEvent) => void,
   onError: () => void,

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 
 from .types import DockerLog
 
 
+ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+
+
 def parse_docker_log(line: str) -> DockerLog | None:
     """Parse the pipe-delimited format emitted by Scorpio services."""
-    line = line.strip()
+    line = ANSI_ESCAPE.sub("", line).strip()
     if not line:
         return None
 
@@ -28,6 +32,9 @@ def parse_docker_log(line: str) -> DockerLog | None:
             datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         except ValueError:
             timestamp = None
+
+    if timestamp is None:
+        timestamp = datetime.now().astimezone().isoformat()
 
     level = fields[1] if len(fields) > 1 and fields[1] else None
     layer = fields[2] if len(fields) > 2 and fields[2] else None

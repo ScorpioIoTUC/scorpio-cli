@@ -1,6 +1,7 @@
 import queue
 import json
 import sys
+import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from functools import partial
 from http import HTTPStatus
@@ -121,6 +122,20 @@ class Handler(SimpleHTTPRequestHandler):
         setup_completed = storage["setup"].get("completed", False)
         return setup_completed
 
+    def _get_setup_status(self) -> dict:
+        """Return the live state enriched with the persisted installation state."""
+        status = self.setup_manager.get_status()
+        storage = self._get_storage()
+        persisted_setup = storage.get("setup") or {}
+
+        if persisted_setup.get("completed"):
+            status["status"] = "completed"
+            status["completedAt"] = persisted_setup.get("completedAt")
+            status["timezone"] = persisted_setup.get("timezone")
+            status["version"] = persisted_setup.get("version")
+
+        return status
+
     def _scorpio_setup(self, body: dict) -> tuple[dict, HTTPStatus]:
         current_status = self.setup_manager.get_status()["status"]
         if current_status == "running":
@@ -177,7 +192,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(f"data: {json.dumps(event)}\n\n".encode("utf-8"))
                 self.wfile.flush()
 
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, RuntimeError):
             # The generator's finally block closes docker compose logs -f.
             pass
 
@@ -206,11 +221,25 @@ class Handler(SimpleHTTPRequestHandler):
         for _ in self.remote_executor.stream(remote_command):
             pass
 
+    def _reboot(self) -> tuple[dict, HTTPStatus]:
+        if not self.remote_executor.is_connected:
+            return {"error": "No active SSH connection."}, HTTPStatus.BAD_REQUEST
+
+        def reboot_remote_host() -> None:
+            try:
+                for _ in self.remote_executor.stream("sudo reboot"):
+                    pass
+            except (ConnectionError, RuntimeError, OSError):
+                pass
+
+        threading.Thread(target=reboot_remote_host, daemon=True).start()
+        return {"message": "Raspberry Pi reboot requested."}, HTTPStatus.ACCEPTED
+
     def do_GET(self):
         if self.path == "/version":
             self.send_json(self._get_system_version())
         elif self.path == "/scorpio/setup/status":
-            self.send_json(self.setup_manager.get_status())
+            self.send_json(self._get_setup_status())
         elif self.path == "/scorpio/setup/events":
             self._send_setup_events()
 
@@ -234,6 +263,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(*self._ssh_logout())
         elif self.path == "/scorpio/setup":
             self.send_json(*self._scorpio_setup(body))
+        elif self.path == "/scorpio/reboot":
+            self.send_json(*self._reboot())
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -265,7 +296,7 @@ class Handler(SimpleHTTPRequestHandler):
             # Permite al frontend conocer inmediatamente el estado actual.
             initial_status = {
                 "type": "status",
-                "data": self.setup_manager.get_status(),
+                "data": self._get_setup_status(),
             }
 
             self.wfile.write(f"data: {json.dumps(initial_status)}\n\n".encode("utf-8"))
@@ -278,7 +309,7 @@ class Handler(SimpleHTTPRequestHandler):
                     if log is None:
                         final_status = {
                             "type": "status",
-                            "data": self.setup_manager.get_status(),
+                            "data": self._get_setup_status(),
                         }
 
                         self.wfile.write(
@@ -312,8 +343,10 @@ def ensure_server_storage():
 
 class ScorpioHTTPServer(ThreadingHTTPServer):
     def handle_error(self, request, client_address):
-        exc_type, _, _ = sys.exc_info()
+        exc_type, exc_value, _ = sys.exc_info()
         if exc_type in (ConnectionResetError, BrokenPipeError):
+            return
+        if exc_type is RuntimeError and "Remote command failed with code -1" in str(exc_value):
             return
         super().handle_error(request, client_address)
 
