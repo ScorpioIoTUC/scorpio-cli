@@ -6,6 +6,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from functools import partial
 from http import HTTPStatus
 import logging
+import shlex
 from scorpio.server.config import (
     PORT,
     SERVER_URL,
@@ -159,9 +160,30 @@ class Handler(SimpleHTTPRequestHandler):
                 "error": "Scorpio setup has already been completed."
             }, HTTPStatus.BAD_REQUEST
 
+        try:
+            latest_release = self.github_client.get_latest_release()
+        except Exception as error:
+            return {
+                "error": f"Unable to determine the latest Scorpio release: {error}"
+            }, HTTPStatus.BAD_GATEWAY
+
+        release_tag = shlex.quote(latest_release.version)
+        project_dir = "~/.local/share/scorpio/Scorpio-Project"
+
         started = self.setup_manager.start(
             executor=self.remote_executor,
-            command=("cd ~/.local/share/scorpio/Scorpio-Project && make setup-all"),
+            command=(
+                "mkdir -p ~/.local/share/scorpio && "
+                f"if [ ! -d {project_dir}/.git ]; then "
+                "git clone --depth 1 --branch "
+                f"{release_tag} https://github.com/ScorpioIoTUC/Scorpio-Project.git "
+                f"{project_dir}; "
+                "else "
+                f"git -C {project_dir} fetch --depth 1 origin refs/tags/{release_tag} && "
+                f"git -C {project_dir} checkout --force FETCH_HEAD; "
+                "fi && "
+                f"cd {project_dir} && make setup-all"
+            ),
             on_success=self._mark_setup_as_completed,
         )
 
