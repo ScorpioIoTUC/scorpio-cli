@@ -9,16 +9,19 @@ import "./LoginPage.css";
 type LoginPageProps = { onConnected: (session: SshSession) => void };
 
 export function LoginPage({ onConnected }: LoginPageProps) {
+  // Collect credentials and establish the remote SSH session.
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState<SshCredentials>({ hostname: "", username: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading, error } = useSshLogin(onConnected);
 
   function updateField(field: keyof SshCredentials, value: string) {
+    // Update one credential without replacing the other fields.
     setCredentials((current) => ({ ...current, [field]: value }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    // Validate and submit the connection form.
     event.preventDefault();
     const connected = await login({
       hostname: credentials.hostname.trim(),
@@ -33,29 +36,18 @@ export function LoginPage({ onConnected }: LoginPageProps) {
       <section className="login-shell" aria-labelledby="login-title">
         <aside className="login-intro">
           <Brand inverted />
-          <div className="login-intro__content">
-            <span className="eyebrow eyebrow--light">CONTROL LOCAL</span>
-            <h1>Tu estación Scorpio, en un solo lugar.</h1>
-            <p>Conecta tu Raspberry Pi para instalar, configurar y monitorear la infraestructura de tu estación.</p>
-          </div>
-          <div className="login-intro__security">
-            <span aria-hidden="true">⌁</span>
-            <p>La conexión ocurre en tu red local. Tus credenciales no se guardan en el navegador.</p>
-          </div>
-          <div className="orbit orbit--one" aria-hidden="true" />
-          <div className="orbit orbit--two" aria-hidden="true" />
         </aside>
 
         <div className="login-panel">
           <div className="login-panel__heading">
-            <span className="eyebrow">CONEXIÓN SSH</span>
-            <h2 id="login-title">Conecta tu Raspberry Pi</h2>
-            <p>Ingresa los mismos datos que utilizas al conectarte por terminal.</p>
+            <span className="eyebrow">SSH Connection</span>
+            <h2 id="login-title">Access your Raspberry Pi</h2>
+            <p>Enter your Raspberry Pi host name and the SSh credentials (username and password).</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
             <label className="field">
-              <span>Dirección IP o hostname</span>
+              <span>IP Address or hostname</span>
               <input
                 name="hostname"
                 value={credentials.hostname}
@@ -64,11 +56,11 @@ export function LoginPage({ onConnected }: LoginPageProps) {
                 autoComplete="off"
                 spellCheck="false"
                 required />
-              <small>Ejemplo: raspberrypi.local o 192.168.1.100</small>
+              <small>Example: raspberrypi.local or 192.168.1.100</small>
             </label>
 
             <label className="field">
-              <span>Usuario</span>
+              <span>User</span>
               <input
                 name="username"
                 value={credentials.username}
@@ -79,14 +71,14 @@ export function LoginPage({ onConnected }: LoginPageProps) {
             </label>
 
             <label className="field">
-              <span>Contraseña</span>
+              <span>Password</span>
               <span className="password-input">
                 <input
                   name="password"
                   type={showPassword ? "text" : "password"}
                   value={credentials.password}
                   onChange={(event) => updateField("password", event.target.value)}
-                  placeholder="Tu contraseña SSH"
+                  placeholder="Your SSH password"
                   autoComplete="current-password" required />
                 <button
                   type="button"
@@ -108,12 +100,12 @@ export function LoginPage({ onConnected }: LoginPageProps) {
               {isLoading
                 ? <>
                   <span className="spinner" aria-hidden="true" />
-                  Conectando...</>
-                : <>Conectar estación <span aria-hidden="true">→</span></>}
+                  Connecting...</>
+                : <>Access <span aria-hidden="true">→</span></>}
             </button>
           </form>
 
-          <p className="login-panel__hint">Asegúrate de que ambos equipos estén conectados a la misma red.</p>
+          <p className="login-panel__hint">Ensure that both devices are connected to the same local network.</p>
         </div>
       </section>
     </main>

@@ -18,6 +18,19 @@ export type SetupStatus = {
   version?: Record<string, string> | null;
   lastLog: SetupLog | null;
   logs: SetupLog[];
+  ssh_active: boolean;
+  infrastructure: InfrastructureStatus;
+};
+
+export type InfrastructureService = {
+  name: string | null;
+  state: string;
+  status: string;
+};
+
+export type InfrastructureStatus = {
+  status: "running" | "stopped";
+  services: InfrastructureService[];
 };
 
 export type SetupEvent =

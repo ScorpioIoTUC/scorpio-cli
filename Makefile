@@ -3,7 +3,7 @@ VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
 TAG ?= v$(VERSION)
 
 .PHONY: help bootstrap clean build check check-clean check-gh test-pypi \
-	publish-pypi tag github-release release
+	publish-pypi tag github-release release update-frontend
 
 help:
 	@echo "Scorpio CLI release commands"
@@ -23,7 +23,7 @@ bootstrap:
 clean:
 	rm -rf build dist scorpio_cli.egg-info
 
-build: clean
+build: clean update-frontend
 	$(PYTHON) -m build
 
 check:
@@ -62,6 +62,11 @@ github-release: check-clean check-gh build check
 		--verify-tag \
 		--title "Scorpio CLI $(TAG)" \
 		--generate-notes
+
+update-frontend:
+	@echo "Updating frontend..."
+	cd scorpio/ui && npm run build
+	@echo "Frontend updated."
 
 release: check-clean check-gh build check
 	@! git rev-parse "$(TAG)" >/dev/null 2>&1 || \

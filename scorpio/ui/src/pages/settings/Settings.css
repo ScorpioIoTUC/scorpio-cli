@@ -1,0 +1,107 @@
+.settings-page {
+    min-height: 100vh;
+    color: var(--color-ink);
+    background: var(--color-background);
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 5%;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.settings-header a {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.settings-content {
+    width: min(42rem, 90%);
+    margin: 3rem auto;
+}
+
+.settings-content h1 {
+    margin: .5rem 0;
+}
+
+.settings-content>p {
+    color: var(--color-muted);
+}
+
+.settings-card {
+    display: grid;
+    gap: .7rem;
+    margin-top: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+}
+
+.settings-card h2,
+.settings-card p {
+    margin: 0;
+}
+
+.settings-card p,
+.settings-card span {
+    color: var(--color-muted);
+    font-size: .8rem;
+}
+
+.settings-card input {
+    padding: .7rem;
+    border: 1px solid var(--color-border);
+    border-radius: .5rem;
+}
+
+.settings-card button {
+    width: max-content;
+    padding: .65rem .9rem;
+    border: 0;
+    border-radius: .5rem;
+    color: #fff;
+    background: var(--color-primary);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.settings-message {
+    margin: 1rem 0;
+    padding: .75rem;
+    border-radius: .5rem;
+    color: #267047;
+    background: #e1f5e8;
+}
+
+
+.discord-remove-button {
+    margin-top: 1rem;
+    padding: .65rem .9rem;
+    border: 1px solid lightcoral;
+    border-radius: .5rem;
+    color: lightcoral;
+
+    background-color: var(--color-surface);
+    font-weight: 300;
+    cursor: pointer;
+}
+
+.settings-card__configs {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    padding: 1rem;
+    border-radius: 1rem;
+}
+
+.settings-card__configs h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-primary);
+}

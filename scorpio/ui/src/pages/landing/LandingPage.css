@@ -123,6 +123,11 @@
     box-shadow: var(--shadow-card);
 }
 
+.infrastructure-card {
+    display: flex;
+    flex-direction: column;
+}
+
 .setup-card__header,
 .logs-panel__header {
     display: flex;
@@ -139,13 +144,18 @@
 
 .refresh-button {
     padding: .38rem .6rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: .45rem;
+    border: 2px solid var(--color-border-strong);
+    border-radius: .7rem;
     color: var(--color-primary);
-    background: var(--color-surface);
+    background: var(--color-background);
     font-size: .68rem;
     font-weight: 800;
     cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    height: 2.5rem;
 }
 
 .logs-filters {
@@ -214,7 +224,7 @@
 }
 
 .setup-completed-at {
-    margin-top: -.4rem !important;
+    margin-top: .5rem !important;
     color: var(--color-primary) !important;
     font-size: .72rem !important;
     font-weight: 700;
@@ -301,149 +311,7 @@
     background: #b83c4c;
 }
 
-.logs-panel {
-    margin-top: 1rem;
-    padding: 1.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: 1.25rem;
-    background: var(--color-surface);
-    box-shadow: var(--shadow-card);
-}
 
-.logs-terminal {
-    overflow: auto;
-    max-height: 30rem;
-    padding: 0 1rem 1rem;
-    border-radius: .75rem;
-    color: #c9cee7;
-    background: #191a24;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    font-size: .72rem;
-    line-height: 1.8;
-}
-
-.logs-table-header {
-    display: grid;
-    grid-template-columns: 9rem 15rem 6rem 13rem minmax(0, 1fr);
-    gap: .75rem;
-    width: 100%;
-    min-width: 0;
-    padding: .75rem 1rem;
-    border-radius: .75rem .75rem 0 0;
-    color: #858ba7;
-    background: #222431;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    font-size: .66rem;
-    font-weight: 800;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-}
-
-.log-line {
-    display: grid;
-    grid-template-columns: 9rem 15rem 6rem 13rem minmax(0, 1fr);
-    gap: .75rem;
-    width: 100%;
-    min-width: 0;
-    white-space: nowrap;
-    align-items: center;
-}
-
-.log-line>.log-separator {
-    display: none;
-}
-
-.log-line {
-    padding: .18rem 0;
-    border-bottom: 1px solid rgba(133, 139, 167, .12);
-}
-
-.log-service {
-    color: #e5b758;
-}
-
-.log-separator {
-    color: #6d7188;
-}
-
-.log-line time {
-    color: #bdc4e4;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.log-level {
-    width: fit-content;
-    padding: .12rem .35rem;
-    border-radius: .25rem;
-    font-weight: 800;
-}
-
-.log-level--info {
-    color: #9be7b4;
-    background: rgba(49, 157, 92, .22);
-}
-
-.log-level--warning {
-    color: #ffd17a;
-    background: rgba(213, 133, 30, .22);
-}
-
-.log-level--error {
-    color: #ff9da8;
-    background: rgba(194, 48, 66, .24);
-}
-
-.log-level--debug {
-    color: #9fc5ff;
-    background: rgba(70, 123, 213, .24);
-}
-
-.log-layer {
-    color: #c6b9f2;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.log-message {
-    color: #d8dcef;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.logs-empty {
-    margin: 0;
-    color: #858ba7;
-}
-
-.logs-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: .65rem;
-    margin-top: 1rem;
-    color: var(--color-muted);
-    font-size: .72rem;
-    font-weight: 700;
-}
-
-.logs-pagination button {
-    padding: .5rem .7rem;
-    border: 1px solid var(--color-border-strong);
-    border-radius: .45rem;
-    color: var(--color-primary);
-    background: var(--color-surface);
-    font-size: .72rem;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.logs-pagination button:disabled {
-    cursor: not-allowed;
-    opacity: .45;
-}
 
 .connection-card {
     display: grid;

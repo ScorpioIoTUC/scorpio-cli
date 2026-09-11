@@ -43,9 +43,7 @@ class ScorpioCLI:
         self.execute_command(args.command)
 
     def execute_command(
-        self,
-        command_name: str,
-        output_callback: Callable[[str], None] | None = None,
+        self, command_name: str, output_callback: Callable[[str], None] | None = None
     ) -> None:
         command = self.commands.get(command_name)
         if command is None:

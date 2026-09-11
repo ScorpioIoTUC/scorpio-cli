@@ -16,7 +16,6 @@ class SetupManager:
         self._subscribers: set[queue.Queue[SetupLog | None]] = set()
         self._logs: list[SetupLog] = []
         self._thread: threading.Thread | None = None
-
         self.status = "idle"
         self.error: str | None = None
         self.started_at: str | None = None
@@ -73,12 +72,9 @@ class SetupManager:
         if parsed_log is not None:
             self._publish(parsed_log)
 
-
-
     def get_status(self) -> dict:
         with self._lock:
             current_log = self._logs[-1] if self._logs else None
-
             return {
                 "status": self.status,
                 "error": self.error,

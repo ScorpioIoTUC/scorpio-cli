@@ -8,10 +8,20 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    proxy: { "/ssh": backend, "/version": backend },
+    proxy: {
+      "/ssh": backend,
+      "/scorpio": backend,
+      "/version": backend,
+      "/discord": backend,
+    },
   },
   preview: {
     port: 4173,
-    proxy: { "/ssh": backend, "/version": backend },
+    proxy: {
+      "/ssh": backend,
+      "/scorpio": backend,
+      "/version": backend,
+      "/discord": backend,
+    },
   },
 });
