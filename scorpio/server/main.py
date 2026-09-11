@@ -182,7 +182,7 @@ class Handler(SimpleHTTPRequestHandler):
                 f"git -C {project_dir} fetch --depth 1 origin refs/tags/{release_tag} && "
                 f"git -C {project_dir} checkout --force FETCH_HEAD; "
                 "fi && "
-                f"cd {project_dir} && make setup-all"
+                f"cd {project_dir} && make setup-host && make setup-docker"
             ),
             on_success=self._mark_setup_as_completed,
         )
