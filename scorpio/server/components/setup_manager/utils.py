@@ -9,7 +9,7 @@ ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 def parse_setup_log(line: str) -> SetupLog | None:
     line = ANSI_ESCAPE.sub("", line).strip()
     if "log:" in line and not line.startswith("log:"):
-        line = line[line.index("log:"):]
+        line = line[line.index("log:") :]
     if not line.startswith("log:"):
         return None
     parts = line.split(":", 5)

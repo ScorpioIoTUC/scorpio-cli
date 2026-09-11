@@ -40,3 +40,7 @@ Upgrade or uninstall the CLI with:
 pipx upgrade scorpio-cli
 pipx uninstall scorpio-cli
 ```
+
+# Development
+* Setup the backend service with: `python -m scorpio.server.dev`
+* Setup the frontend service with `cd scorpio/ui && npm install && npm run dev`

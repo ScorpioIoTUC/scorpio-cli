@@ -123,12 +123,89 @@
     box-shadow: var(--shadow-card);
 }
 
+.infrastructure-card {
+    display: flex;
+    flex-direction: column;
+}
+
 .setup-card__header,
 .logs-panel__header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+}
+
+.logs-panel__tools {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+}
+
+.refresh-button {
+    padding: .38rem .6rem;
+    border: 2px solid var(--color-border-strong);
+    border-radius: .7rem;
+    color: var(--color-primary);
+    background: var(--color-background);
+    font-size: .68rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    height: 2.5rem;
+}
+
+.logs-filters {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-top: 1rem;
+}
+
+.logs-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    color: var(--color-muted);
+    font-size: .68rem;
+    font-weight: 800;
+}
+
+.logs-filters select {
+    min-width: 8rem;
+    padding: .5rem .6rem;
+    border: 1px solid var(--color-border);
+    border-radius: .45rem;
+    color: var(--color-ink-soft);
+    background: var(--color-surface);
+    font-size: .75rem;
+}
+
+.logs-updated {
+    margin-left: auto;
+    color: var(--color-muted);
+    font-size: .68rem;
+}
+
+.logs-filters--services {
+    margin-top: 1rem;
+}
+
+.reboot-button {
+    display: block;
+    margin: 1rem 0 0 auto;
+    padding: .7rem .9rem;
+    border: 1px solid #e5b1b8;
+    border-radius: .65rem;
+    color: #9c2734;
+    background: #fff5f6;
+    font-size: .78rem;
+    font-weight: 800;
+    cursor: pointer;
 }
 
 .setup-card h2,
@@ -146,6 +223,13 @@
     line-height: 1.55;
 }
 
+.setup-completed-at {
+    margin-top: .5rem !important;
+    color: var(--color-primary) !important;
+    font-size: .72rem !important;
+    font-weight: 700;
+}
+
 .setup-status,
 .logs-count {
     padding: .38rem .6rem;
@@ -157,9 +241,20 @@
     text-transform: uppercase;
 }
 
-.setup-status--running { color: #96620c; background: #fff2d2; }
-.setup-status--completed { color: #267047; background: #e1f5e8; }
-.setup-status--failed { color: #9c2734; background: #ffe4e7; }
+.setup-status--running {
+    color: #96620c;
+    background: #fff2d2;
+}
+
+.setup-status--completed {
+    color: #267047;
+    background: #e1f5e8;
+}
+
+.setup-status--failed {
+    color: #9c2734;
+    background: #ffe4e7;
+}
 
 .setup-progress {
     width: 100%;
@@ -179,7 +274,10 @@
     cursor: pointer;
 }
 
-.setup-button:disabled { cursor: not-allowed; opacity: .55; }
+.setup-button:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+}
 
 .infrastructure-actions {
     display: flex;
@@ -196,8 +294,13 @@
     font-weight: 700;
 }
 
-.infrastructure-state--running { color: #267047; }
-.infrastructure-state--stopped { color: #9c2734; }
+.infrastructure-state--running {
+    color: #267047;
+}
+
+.infrastructure-state--stopped {
+    color: #9c2734;
+}
 
 .setup-button--secondary {
     color: #4b43a8;
@@ -208,46 +311,7 @@
     background: #b83c4c;
 }
 
-.logs-panel {
-    margin-top: 1rem;
-    padding: 1.6rem;
-    border: 1px solid var(--color-border);
-    border-radius: 1.25rem;
-    background: var(--color-surface);
-    box-shadow: var(--shadow-card);
-}
 
-.logs-terminal {
-    overflow: auto;
-    max-height: 27rem;
-    margin-top: 1rem;
-    padding: 1rem;
-    border-radius: .75rem;
-    color: #c9cee7;
-    background: #191a24;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-    font-size: .72rem;
-    line-height: 1.8;
-}
-
-.log-line {
-    display: grid;
-    grid-template-columns: 9rem auto 5.5rem auto 4.5rem auto 11rem auto minmax(18rem, 1fr);
-    gap: .55rem;
-    min-width: 72rem;
-    white-space: nowrap;
-}
-
-.log-service { color: #e5b758; }
-.log-separator { color: #6d7188; }
-.log-line time { color: #bdc4e4; }
-.log-level { font-weight: 800; }
-.log-level--info { color: #b8c3f0; }
-.log-level--warning { color: #f2c46a; }
-.log-level--error { color: #f27b8a; }
-.log-layer { color: #c6b9f2; }
-.log-message { color: #d8dcef; overflow: hidden; text-overflow: ellipsis; }
-.logs-empty { margin: 0; color: #858ba7; }
 
 .connection-card {
     display: grid;

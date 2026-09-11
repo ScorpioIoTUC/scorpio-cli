@@ -4,6 +4,7 @@ import { sshApi } from "./sshApi";
 import type { SshCredentials, SshSession } from "./sshTypes";
 
 export function useSshLogin(onConnected: (session: SshSession) => void) {
+  // Manage the SSH login request and its UI state.
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

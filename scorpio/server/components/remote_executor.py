@@ -1,13 +1,15 @@
 from __future__ import annotations
 from collections.abc import Iterator
 from scorpio.cli.clients.ssh.ssh_client import SSHClient
+from scorpio.server.components.storage_handler import StorageHandler
 
 
 class RemoteExecutor:
     """Owns the SSH connection used by every remote Scorpio operation."""
 
-    def __init__(self) -> None:
+    def __init__(self, storage_handler) -> None:
         self._client: SSHClient | None = None
+        self.storage_handler: StorageHandler = storage_handler
 
     @property
     def is_connected(self) -> bool:
@@ -23,8 +25,12 @@ class RemoteExecutor:
             self._client.close_connection()
             self._client = None
 
-    def stream(self, command: str) -> Iterator[str]:
-        if self._client is None:
+    def require_connection(self) -> None:
+        if not self.is_connected:
             raise ConnectionError("No active SSH connection.")
 
+        
+    
+    def stream(self, command: str) -> Iterator[str]:
+        self.require_connection()
         yield from self._client.execute_streaming(command)

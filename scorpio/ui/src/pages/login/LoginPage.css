@@ -1,3 +1,14 @@
+:root {
+    --color-primary: #5b52cc;
+    --color-surface: #f9faff;
+    --color-border: #e0e3eb;
+    --color-border-strong: #cfd4e0;
+    --color-ink: #1a1c1f;
+    --color-ink-soft: #3d3f45;
+    --color-muted: #6b6e76;
+    --shadow-large: 0 12px 28px rgba(70, 67, 164, .18);
+}
+
 .login-page {
     display: grid;
     place-items: center;
@@ -6,9 +17,10 @@
 }
 
 .login-shell {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     grid-template-columns: minmax(0, .92fr) minmax(28rem, 1.08fr);
-    width: min(68rem, 100%);
+    width: min(50rem, 100%);
     min-height: 40rem;
     overflow: hidden;
     border: 1px solid var(--color-border);
@@ -25,7 +37,7 @@
     overflow: hidden;
     padding: 2.4rem;
     color: white;
-    background: radial-gradient(circle at 18% 82%, rgba(82, 194, 255, .22), transparent 26%), linear-gradient(145deg, #182d77, #3a3b9c 52%, #6540aa);
+    background-color: var(--color-primary);
 }
 
 .login-intro::after {

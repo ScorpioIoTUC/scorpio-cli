@@ -6,5 +6,6 @@ import "./styles/tokens.css";
 import "./styles/global.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
+  // Strict mode helps detect unsafe side effects during development.
   <React.StrictMode><App /></React.StrictMode>,
 );

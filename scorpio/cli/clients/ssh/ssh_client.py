@@ -2,6 +2,7 @@ from .ssh_contract import SSHContract
 import paramiko
 from .ssh_types import SSHException
 from collections.abc import Iterator
+import shlex
 
 
 class SSHClient(SSHContract):
@@ -39,7 +40,14 @@ class SSHClient(SSHContract):
         }
 
     def execute_streaming(self, command: str) -> Iterator[str]:
-        _, stdout, stderr = self.client.exec_command(command, get_pty=True)
+        escaped_password = shlex.quote(self.password)
+        remote_command = (
+            f"printf '%s\\n' {escaped_password} | "
+            "sudo -S -p '' -v >/dev/null 2>&1 && "
+            f"bash -lc {shlex.quote(command)}"
+        )
+
+        _, stdout, stderr = self.client.exec_command(remote_command, get_pty=True)
         try:
             for line in iter(stdout.readline, ""):
                 yield line.rstrip("\n")
