@@ -71,3 +71,17 @@ export function subscribeToDockerLogs(
 
   return () => events.close();
 }
+
+
+// Function to retrieve the configuration token from the server
+export function getScorpioTokenSetup(): Promise<{ api_url: string, token: string }> {
+  return requestJson("/scorpio/setup/token");
+}
+
+// Function to update the configuration token on the server
+export function updateScorpioTokenSetup(newToken: string, apiUrl: string | undefined): Promise<{ message: string }> {
+  return requestJson("/scorpio/setup/token", {
+    method: "POST",
+    body: JSON.stringify({ token: newToken, api_url: apiUrl }),
+  });
+}

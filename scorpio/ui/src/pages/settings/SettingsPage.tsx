@@ -3,12 +3,18 @@ import {
   getDiscordSettings, removeDiscord, setDiscordAlertGap, setDiscordChannel, setupDiscord,
   type DiscordSettings,
 } from "../../api/discord/discordApi";
+import { getScorpioTokenSetup, updateScorpioTokenSetup } from "../../api/setup/setupApi";
+
+
 import { Brand } from "../../components/Brand/Brand";
 import "./Settings.css";
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<DiscordSettings | null>(null);
-  const [token, setToken] = useState("");
+  const [discordToken, setDiscordToken] = useState("");
+  const [scorpioToken, setScorpioToken] = useState("");
+  const [showScorpioToken, setShowScorpioToken] = useState(false);
+  const [scorpioApiUrl, setScorpioApiUrl] = useState("");
   const [tag, setTag] = useState("general");
   const [channelId, setChannelId] = useState("");
   const [gap, setGap] = useState(5);
@@ -22,11 +28,26 @@ export function SettingsPage() {
     }).catch(() => setMessage("Could not load Discord settings."));
   }, []);
 
+  useEffect(() => {
+    getScorpioTokenSetup()
+      .then((result) => {
+        setScorpioToken(result.token);
+        setScorpioApiUrl(result.api_url);
+      })
+      .catch(() => setMessage("Could not load Scorpio API settings."));
+  }, []);
+
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+
   async function saveToken(event: FormEvent) {
     event.preventDefault();
-    const result = await setupDiscord(token);
+    const result = await setupDiscord(discordToken);
     setMessage(result.message);
-    setToken("");
+    setDiscordToken("");
     setSettings((current) => current && { ...current, configured: true });
   }
 
@@ -48,17 +69,44 @@ export function SettingsPage() {
     const result = await removeDiscord();
     setMessage(result.message);
     setSettings({ configured: false, channels: {}, error_alert_gap_minutes: 5 });
-    setToken("");
+    setDiscordToken("");
     setChannelId("");
+  }
+
+  async function saveScorpioSetup(event: FormEvent) {
+    event.preventDefault();
+    const token = scorpioToken.trim();
+    const apiUrl = scorpioApiUrl.trim() || undefined;
+    if (!token) {
+      setMessage("Scorpio API token cannot be empty.");
+      return;
+    }
+    const result = await updateScorpioTokenSetup(token, apiUrl);
+    setMessage(result.message);
   }
 
   return (
     <main className="settings-page">
-      <header className="settings-header"><Brand /><a href="#/">Dashboard</a></header>
+      <header className="settings-header"><Brand /><a href="#/">Back to Home</a></header>
+      {message && <div className="settings-message">{message}</div>}
       <section className="settings-content">
         <span className="card-label">Settings</span>
-        <h1>Discord integration</h1>
-        {message && <div className="settings-message">{message}</div>}
+        {/* Token authentication */}
+        <h1>Station settings</h1>
+        <p>Configure the station settings below. The Scorpio API token is required for the station to communicate with the Scorpio server.</p>
+        <form className="settings-card" onSubmit={(e) => saveScorpioSetup(e)}>
+          <h2>Scorpio API token</h2>
+          <input type={showScorpioToken ? "text" : "password"} value={scorpioToken} onChange={(event) => setScorpioToken(event.target.value)} placeholder="Scorpio API token" required />
+          <label>
+            <input type="checkbox" checked={showScorpioToken} onChange={(event) => setShowScorpioToken(event.target.checked)} />
+            Show token
+          </label>
+          <input type="text" value={scorpioApiUrl} onChange={(event) => setScorpioApiUrl(event.target.value)} placeholder="Scorpio API URL" required />
+          <button type="submit">Save</button>
+        </form>
+
+        {/* Discord configuration */}
+        {/* <h1>Discord integration</h1>
         {settings?.configured &&
           <article className="settings-card__configs">
             <h4>Current configuration</h4>
@@ -79,7 +127,7 @@ export function SettingsPage() {
             ? "You have a token configured. You can update it here."
             : "No token configured"}</p>
           <input
-            type="password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="Discord bot token" required />
+            type="password" value={discordToken} onChange={(event) => setDiscordToken(event.target.value)} placeholder="Discord bot token" required />
           <button type="submit">{settings?.configured ? "Update token" : "Save token"}</button>
         </form>
         <form className="settings-card" onSubmit={saveChannel}>
@@ -96,7 +144,7 @@ export function SettingsPage() {
         {settings?.configured &&
           <button className="discord-remove-button" type="button" onClick={removeConfiguration}>
             Remove Discord configuration
-          </button>}
+          </button>} */}
       </section>
     </main>
   );

@@ -38,7 +38,7 @@ export default function LandingPageStatus({
     } catch (reason) {
       setError(reason instanceof Error
         ? reason.message
-        : "No se pudo cambiar la infraestructura.");
+        : "Could not change the infrastructure state.");
     } finally {
       setAction(null);
     }
@@ -50,21 +50,21 @@ export default function LandingPageStatus({
     <article className="setup-card infrastructure-card">
       <div className="setup-card__header">
         <div>
-          <span className="card-label">Infraestructura</span>
-          <h2>Estado de servicios</h2>
+          <span className="card-label">Infrastructure</span>
+          <h2>Service status</h2>
         </div>
         <span className={`setup-status setup-status--${infrastructureStatus}`}>
           {infrastructureStatus}
         </span>
       </div>
-      <p>Controla los servicios Docker instalados en la Raspberry Pi.</p>
+      <p>Control the Docker services installed on the Raspberry Pi.</p>
       <div className="infrastructure-actions">
         <button
           className="refresh-button"
           type="button"
           
           onClick={() => window.location.reload()}>
-          <p>Update page</p>
+          <p>Refresh page</p>
           <GrUpdate size={20}/>
         </button>
         <button

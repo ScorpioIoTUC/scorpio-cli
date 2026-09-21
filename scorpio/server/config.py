@@ -8,6 +8,7 @@ PACKAGE_DIR = Path(__file__).resolve().parent.parent
 UI_DIR = PACKAGE_DIR / "ui" / "dist"
 
 SCORPIO_DATA_DIR = Path(__file__).home() / ".local" / "share" / "scorpio"
+SCORPIO_PROJECT_DIR = SCORPIO_DATA_DIR / "Scorpio-Project"
 SERVER_STORAGE_PATH = SCORPIO_DATA_DIR / "server_storage.json"
 SERVER_STORAGE_INIT_DATA = {
     "ssh": {

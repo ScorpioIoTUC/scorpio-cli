@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getSetupStatus,
@@ -10,11 +11,22 @@ import LandingPageStatus from "../status/LandingPageStatus";
 import "./LandingPage.general.css";
 
 const labels = {
-  idle: "Listo para instalar",
-  running: "Instalación en progreso",
-  completed: "Instalación completada",
-  failed: "Instalación fallida"
+  idle: "Ready to install",
+  running: "Installation in progress",
+  completed: "Installation complete",
+  failed: "Installation failed"
 } as const;
+
+const timeRanges = {
+  all: { label: "All time", milliseconds: null },
+  "15m": { label: "Last 15 minutes", milliseconds: 15 * 60 * 1000 },
+  "1h": { label: "Last hour", milliseconds: 60 * 60 * 1000 },
+  "24h": { label: "Last 24 hours", milliseconds: 24 * 60 * 60 * 1000 },
+  "7d": { label: "Last 7 days", milliseconds: 7 * 24 * 60 * 60 * 1000 },
+  "30d": { label: "Last month", milliseconds: 30 * 24 * 60 * 60 * 1000 },
+} as const;
+
+type TimeRange = keyof typeof timeRanges;
 
 export default function LandingPageGeneral() {
   // Coordinate setup state, infrastructure actions, and live logs.
@@ -24,7 +36,8 @@ export default function LandingPageGeneral() {
   const [dockerLogs, setDockerLogs] = useState<DockerLog[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [service, setService] = useState("all");
-  const [page, setPage] = useState(0);
+  const [timeRange, setTimeRange] = useState<TimeRange>("1h");
+  const [filterNow, setFilterNow] = useState(Date.now());
 
   function redirectToLogin() {
     clearSshSession();
@@ -57,7 +70,7 @@ export default function LandingPageGeneral() {
         setStatus(value);
         setSetupLogs(value.logs);
       }
-    }).catch(() => setError("No se pudo consultar el estado del setup."));
+    }).catch(() => setError("Could not retrieve the setup status."));
     const unsubscribe = subscribeToSetup((event) => {
       if (!active) return;
       if (event.type === "status") {
@@ -66,7 +79,7 @@ export default function LandingPageGeneral() {
       } else setSetupLogs((current) => [...current, event.data]);
     }, () => {
       if (!active) return;
-      void handleConnectionError("Se perdió temporalmente la conexión con los logs del setup.");
+      void handleConnectionError("The connection to the setup logs was temporarily lost.");
     });
     return () => {
       active = false;
@@ -80,25 +93,43 @@ export default function LandingPageGeneral() {
     const unsubscribe = subscribeToDockerLogs((event) => setDockerLogs(
       (current) => [...current, event.data]),
       () => {
-        void handleConnectionError("Se perdió temporalmente la conexión con los logs Docker.");
+        void handleConnectionError("The connection to the Docker logs was temporarily lost.");
       });
     return unsubscribe;
   }, [status?.status]);
 
-  const visibleLogs = dockerLogs
-    .filter((log) => service === "all" || log.service === service)
-    .sort((left, right) => {
-      const leftTime = left.timestamp ? Date.parse(left.timestamp) : 0;
-      const rightTime = right.timestamp ? Date.parse(right.timestamp) : 0;
-      return leftTime - rightTime;
-    });
-  const pages = Math.max(1, Math.ceil(visibleLogs.length / 10));
-  const currentLogs = visibleLogs.slice(
-    Math.max(0, visibleLogs.length - (page + 1) * 10),
-    visibleLogs.length - page * 10).reverse();
+  useEffect(() => {
+    if (timeRange === "all") return undefined;
+    const interval = window.setInterval(() => setFilterNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, [timeRange]);
 
-    
+  const visibleLogs = useMemo(() => {
+    const range = timeRanges[timeRange].milliseconds;
+    const cutoff = range === null ? null : filterNow - range;
+
+    return dockerLogs
+      .filter((log) => service === "all" || log.service === service)
+      .filter((log) => {
+        if (cutoff === null) return true;
+        if (!log.timestamp) return false;
+        const timestamp = Date.parse(log.timestamp);
+        return Number.isFinite(timestamp) && timestamp >= cutoff;
+      })
+      .sort((left, right) => {
+        const leftTime = left.timestamp ? Date.parse(left.timestamp) : 0;
+        const rightTime = right.timestamp ? Date.parse(right.timestamp) : 0;
+        return rightTime - leftTime;
+      });
+  }, [dockerLogs, filterNow, service, timeRange]);
+
   const services = Array.from(new Set(dockerLogs.map((log) => log.service))).sort();
+  const serviceColorByName = useMemo(() => Object.fromEntries(
+    services.map((name, index) => [
+      name,
+      `hsl(${Math.round((index * 137.508 + 32) % 360)} 68% 46%)`,
+    ]),
+  ), [services]);
   const progress = useMemo(() => {
     const log = setupLogs.at(-1);
     return log?.step && log.total_steps
@@ -113,19 +144,19 @@ export default function LandingPageGeneral() {
     try {
       await startSetup();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo iniciar el setup.");
+      setError(reason instanceof Error ? reason.message : "Could not start the setup process.");
     }
   }
   async function reboot() {
     // Confirm the destructive action before rebooting the host.
-    if (!window.confirm("¿Estás seguro de que quieres reiniciar la Raspberry Pi?")) return;
+    if (!window.confirm("Are you sure you want to reboot the Raspberry Pi?")) return;
     try {
       await rebootHost();
-      setError("La Raspberry Pi se está reiniciando.");
+      setError("The Raspberry Pi is rebooting.");
     } catch (reason) {
       setError(reason instanceof Error
         ? reason.message
-        : "No se pudo reiniciar la Raspberry Pi.");
+        : "Could not reboot the Raspberry Pi.");
     }
   }
 
@@ -145,7 +176,7 @@ export default function LandingPageGeneral() {
           <progress className="setup-progress" max="100" value={progress} />}
         {status?.completedAt &&
           <p className="setup-completed-at">
-            Realizado el {new Date(status.completedAt).toLocaleString()}
+            Completed on {new Date(status.completedAt).toLocaleString("en-US")}
           </p>}
         {setupState !== "completed" &&
           <>
@@ -159,7 +190,7 @@ export default function LandingPageGeneral() {
               type="button"
               onClick={setup}
               disabled={setupState === "running"}>
-              Iniciar instalación
+              Start installation
             </button>
           </>
         }
@@ -172,39 +203,38 @@ export default function LandingPageGeneral() {
       />
     </div>
 
-    {setupState !== "completed" && <LogTable title="Logs de instalación" logs={setupLogs} />}
+    {setupState !== "completed" && <LogTable title="Installation logs" logs={setupLogs} />}
     {/* Logs for live status */}
     {setupState === "completed" &&
       <section className="logs-panel">
         <div className="logs-panel__header">
           <div>
-            <span className="card-label">INFRAESTRUCTURA EN VIVO</span>
-            <h2>Logs de servicios</h2>
+            <h2>Service logs</h2>
+            <span className="card-label">LIVE INFRASTRUCTURE</span>
           </div>
-          <span className="logs-count">{visibleLogs.length} eventos</span>
+          <span className="logs-count">{visibleLogs.length} events</span>
         </div>
         <div className="logs-filters logs-filters--services">
-          <label>Servicio
-            <select value={service} onChange={(event) => { setService(event.target.value); setPage(0); }}>
-              <option value="all">Todos</option>
+          <label>Service
+            <select value={service} onChange={(event) => setService(event.target.value)}>
+              <option value="all">All</option>
               {services.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
+          <label>Time range
+            <select
+              value={timeRange}
+              onChange={(event) => setTimeRange(event.target.value as TimeRange)}>
+              {Object.entries(timeRanges).map(([value, range]) =>
+                <option key={value} value={value}>{range.label}</option>)}
+            </select>
+          </label>
         </div>
-        <div className="logs-pagination">
-          <button type="button" disabled={page === pages - 1} onClick={() => setPage((value) => value + 1)}>
-            Anteriores
-          </button>
-          <span>Página {page + 1} de {pages}</span>
-          <button type="button" disabled={page === 0} onClick={() => setPage((value) => value - 1)}>
-            Siguientes
-          </button>
-        </div>
-        <LogRows logs={currentLogs} service />
+        <LogRows logs={visibleLogs} service sourceColors={serviceColorByName} />
       </section>}
     {setupState === "completed" &&
       <button className="reboot-button" type="button" onClick={reboot}>
-        Reiniciar Raspberry Pi
+        Reboot Raspberry Pi
       </button>}
   </>;
 }
@@ -214,40 +244,106 @@ function LogTable({ title, logs }: { title: string; logs: SetupLog[] }) {
   return (
     <section className="logs-panel"><div className="logs-panel__header">
       <div>
-        <span className="card-label">ACTIVIDAD EN VIVO</span>
+        <span className="card-label">LIVE ACTIVITY</span>
         <h2>{title}</h2>
       </div>
-      <span className="logs-count">{logs.length} eventos</span>
+      <span className="logs-count">{logs.length} events</span>
     </div><LogRows logs={logs} />
     </section>
   )
 }
 
-function LogRows({ logs, service = false }: { logs: Array<SetupLog | DockerLog>; service?: boolean }) {
+type LogRowsProps = {
+  logs: Array<SetupLog | DockerLog>;
+  service?: boolean;
+  sourceColors?: Record<string, string>;
+};
+
+function LogRows({ logs, service = false, sourceColors = {} }: LogRowsProps) {
   // Render normalized setup or Docker events as table rows.
-  return <>
-    <div className="logs-table-header">
-      <span>{service ? "Servicio" : "Fuente"}</span>
-      <span>Fecha / hora</span>
-      <span>Nivel</span>
-      <span>Capa</span>
-      <span>Registro</span>
-    </div>
+  const [expandedLog, setExpandedLog] = useState<number | null>(null);
+  const orderedLogs = useMemo(() => [...logs].sort((left, right) => {
+    const leftTime = left.timestamp ? Date.parse(left.timestamp) : 0;
+    const rightTime = right.timestamp ? Date.parse(right.timestamp) : 0;
+    return rightTime - leftTime;
+  }), [logs]);
+
+  return <div className="logs-table">
     <div className="logs-terminal" role="log" aria-live="polite">
-      {logs.length === 0
-        ? <p className="logs-empty">No hay eventos para mostrar.</p>
-        : logs.map((log, index) => {
+      <div className="logs-table-header">
+        <span>{service ? "Service" : "Source"}</span>
+        <span>Date / time</span>
+        <span>Level</span>
+        <span>Layer</span>
+        <span>Message</span>
+        <span className="visually-hidden">Actions</span>
+      </div>
+      {orderedLogs.length === 0
+        ? <p className="logs-empty">No events to display.</p>
+        : orderedLogs.map((log, index) => {
           const docker = "service" in log;
           const timestamp = log.timestamp ?? new Date().toISOString();
           const level = log.level ?? "info";
-          return <div className="log-line" key={`${timestamp}-${index}`}>
-            <span className="log-service">{docker ? log.service : log.module}</span>
-            <time>{new Date(timestamp).toLocaleString()}</time>
+          const isExpanded = expandedLog === index;
+          const source = docker ? log.service : log.module;
+          const rowStyle = {
+            "--service-color": sourceColors[source] ?? getServiceColor(source),
+          } as CSSProperties;
+          return <div
+            className={`log-line log-line--${level.toLowerCase()}`}
+            key={`${timestamp}-${source}-${index}`}
+            style={rowStyle}>
+            <span className="log-service">{source}</span>
+            <time>{new Date(timestamp).toLocaleString("en-US")}</time>
             <span className={`log-level log-level--${level.toLowerCase()}`}>{level.toUpperCase()}</span>
             <span className="log-layer">{docker ? log.layer ?? "service" : log.step_id ?? "setup"}</span>
-            <span className="log-message">{log.message}</span>
+            <span className="log-message" title={log.message}>{log.message}</span>
+            <button
+              className="log-detail-btn"
+              type="button"
+              aria-label={`${isExpanded ? "Hide" : "Show"} details for event ${index + 1}`}
+              aria-expanded={isExpanded}
+              onClick={() => setExpandedLog(isExpanded ? null : index)}
+              >
+              {isExpanded ? "-" : "+"}
+            </button>
+            {isExpanded && <div className="log-detail-row"><LogRowDetail log={log} /></div>}
+
           </div>;
         })}
     </div>
-  </>;
+  </div>;
+}
+
+const serviceColors = [
+  "#ec9f24",
+  "#4f7ee8",
+  "#a45ee5",
+  "#18a47b",
+  "#df5c78",
+  "#3a9db8",
+  "#bf6b32",
+  "#6c70d9",
+];
+
+function getServiceColor(service: string): string {
+  let hash = 0;
+  for (const character of service) {
+    hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+  }
+  return serviceColors[(hash >>> 0) % serviceColors.length];
+}
+
+function LogRowDetail({ log }: { log: SetupLog | DockerLog }) {
+  // Render a detailed view of a single log entry.
+  const docker = "service" in log;
+  const timestamp = log.timestamp ?? new Date().toISOString();
+  const level = log.level ?? "info";
+  return <div className="log-detail-card">
+    <div><strong>Source:</strong> {docker ? log.service : log.module}</div>
+    <div><strong>Date / time:</strong> {new Date(timestamp).toLocaleString("en-US")}</div>
+    <div><strong>Level:</strong> {level.toUpperCase()}</div>
+    <div><strong>Layer:</strong> {docker ? log.layer ?? "service" : log.step_id ?? "setup"}</div>
+    <div><strong>Message:</strong> {log.message}</div>
+  </div>;
 }
