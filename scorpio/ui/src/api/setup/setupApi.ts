@@ -14,13 +14,16 @@ export function startSetup(): Promise<{ status: string; message: string }> {
   });
 }
 
+export function getVersion(): Promise<{scorpio_cli: string, scorpio_project: string}> {
+  return requestJson("/version");
+}
+
 export function subscribeToSetup(
   onEvent: (event: SetupEvent) => void,
   onError: () => void,
 ): () => void {
   // Subscribe to setup status and log events through SSE.
   const events = new EventSource("/scorpio/setup/events");
-
   events.onmessage = (message) => {
     try {
       onEvent(JSON.parse(message.data) as SetupEvent);
@@ -28,9 +31,7 @@ export function subscribeToSetup(
       onError();
     }
   };
-
   events.onerror = onError;
-
   return () => events.close();
 }
 

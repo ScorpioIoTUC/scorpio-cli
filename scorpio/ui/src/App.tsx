@@ -6,6 +6,7 @@ import { clearSshSession, readSshSession, saveSshSession } from "./helpers/sshSe
 import { LandingPage } from "./pages/landing/LandingPage";
 import { LoginPage } from "./pages/login/LoginPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
+import { UpdatesPage } from "./pages/updates/UpdatesPage";
 
 export default function App() {
   // Restore the SSH session so the user can reopen the dashboard.
@@ -35,6 +36,9 @@ export default function App() {
         <Route
           path="/settings"
           element={session ? <SettingsPage /> : <Navigate to="/login" replace />} />
+        <Route
+          path="/updates"
+          element={session ? <UpdatesPage /> : <Navigate to="/login" replace />} />
         <Route
           path="/"
           element={

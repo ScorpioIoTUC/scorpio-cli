@@ -1,5 +1,6 @@
 import queue
 import json
+import subprocess
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -337,6 +338,67 @@ class Handler(SimpleHTTPRequestHandler):
 
         return {"message": "Setup token updated."}, HTTPStatus.OK
 
+    def _update_scorpio(self) -> tuple[dict, HTTPStatus]:
+        previous_version = Host.get_package_version("scorpio-cli")
+        # Check if the pypi.org version is newer than the installed version
+        pypi_version = self.status_manager.get_pypi_last_version()
+        current_version = pypi_version.get("current_version")
+        latest_version = pypi_version.get("latest_version")
+        if current_version == "unknown" or latest_version == "unknown":
+            return {
+                "error": "Unable to determine the current or latest version of Scorpio CLI."
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        elif current_version == latest_version:
+            return {
+                "message": "Scorpio CLI is already up to date.",
+                "previous_version": current_version,
+                "installed_version": current_version,
+                "restart_required": False,
+            }, HTTPStatus.OK
+
+        try:
+            command = [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "scorpio-cli",
+            ]
+
+            # Scorpio CLI belongs to the local UI host, not the remote Raspberry Pi.
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            installed_version = Host.get_package_version("scorpio-cli")
+            if not installed_version:
+                raise RuntimeError(
+                    "Unable to verify the installed Scorpio CLI version."
+                )
+
+            self.storage_handler.update_scorpio_cli_version(installed_version)
+
+            return {
+                "message": "Scorpio CLI updated successfully.",
+                "previous_version": previous_version,
+                "installed_version": installed_version,
+                "restart_required": True,
+            }, HTTPStatus.OK
+        except subprocess.CalledProcessError as error:
+            details = (error.stderr or error.stdout or "").strip()
+            logging.error("Error updating Scorpio CLI: %s", details or error)
+            return {
+                "error": "Failed to update Scorpio CLI.",
+                "details": details,
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        except (OSError, RuntimeError, ValueError) as error:
+            logging.error("Error updating Scorpio CLI: %s", error)
+            return {"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR
+
     def do_GET(self):
         # Get endpoints
         if self.path == "/version":
@@ -355,6 +417,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(self.discord_handler.get_settings())
         elif self.path == "/scorpio/setup/token":
             self.send_json(*self._get_setup_token())
+        elif self.path == "/scorpio/update":
+            self.send_json(self.status_manager.get_pypi_last_version())
         else:
             super().do_GET()
 
@@ -387,6 +451,8 @@ class Handler(SimpleHTTPRequestHandler):
             )
         elif self.path == "/scorpio/setup/token":
             self.send_json(*self._set_setup_token(body))
+        elif self.path == "/scorpio/update":
+            self.send_json(*self._update_scorpio())
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -475,9 +541,9 @@ def run_server(github_client: GithubContract):
     storage_handler.create()
 
     setup_manager = SetupManager()
-    remote_executor = RemoteExecutor(storage_handler=storage_handler)
+    remote_executor = RemoteExecutor(storage_handler)
     live_logs_manager = LiveLogsManager(remote_executor)
-    status_manager = StatusManager(remote_executor)
+    status_manager = StatusManager(remote_executor, storage_handler)
     discord_handler = DiscordHandler(storage_handler)
 
     handler = partial(
