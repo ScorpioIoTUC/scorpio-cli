@@ -3,22 +3,25 @@ import { GrUpdate } from "react-icons/gr";
 
 import type { Dispatch, SetStateAction } from "react";
 
-import { startInfrastructure, stopInfrastructure } from "../../../../api/setup/setupApi";
-import type { SetupStatus } from "../../../../api/setup/setupTypes";
+import {
+  startInfrastructure,
+  stopInfrastructure,
+} from "../../../api/infrastructure/infrastructureApi";
+import type { SetupStatus } from "../../../api/setup/setupTypes";
 
-type LandingPageStatusProps = {
+type InfrastructureCardProps = {
   setupState: SetupStatus["status"];
   status: SetupStatus | null;
   setStatus: Dispatch<SetStateAction<SetupStatus | null>>;
   setError: Dispatch<SetStateAction<string | null>>;
 };
 
-export default function LandingPageStatus({
+export default function InfrastructureCard({
   setupState,
   status,
   setStatus,
   setError,
-}: LandingPageStatusProps) {
+}: InfrastructureCardProps) {
   const [action, setAction] = useState<"start" | "stop" | null>(null);
   const infrastructureStatus = status?.infrastructure.status ?? "stopped";
 
@@ -28,17 +31,20 @@ export default function LandingPageStatus({
       if (next === "start") await startInfrastructure();
       else await stopInfrastructure();
 
-      setStatus((current) => current && {
-        ...current,
-        infrastructure: {
-          ...current.infrastructure,
-          status: next === "start" ? "running" : "stopped",
-        },
-      });
+      setStatus(
+        (current) =>
+          current && {
+            ...current,
+            infrastructure: {
+              ...current.infrastructure,
+              status: next === "start" ? "running" : "stopped",
+            },
+          },
+      );
     } catch (reason) {
-      setError(reason instanceof Error
-        ? reason.message
-        : "Could not change the infrastructure state.");
+      setError(
+        reason instanceof Error ? reason.message : "Could not change the infrastructure state.",
+      );
     } finally {
       setAction(null);
     }
@@ -62,17 +68,19 @@ export default function LandingPageStatus({
         <button
           className="refresh-button"
           type="button"
-          
-          onClick={() => window.location.reload()}>
+
+          onClick={() => window.location.reload()}
+        >
           <p>Refresh page</p>
-          <GrUpdate size={20}/>
+          <GrUpdate size={20} />
         </button>
         <button
           className={`setup-button setup-button--secondary${infrastructureStatus === "running" ? " setup-button--active" : ""}`}
           type="button"
           onClick={() => infrastructure("start")}
           disabled={action !== null || infrastructureStatus === "running"}
-          aria-pressed={infrastructureStatus === "running"}>
+          aria-pressed={infrastructureStatus === "running"}
+        >
           Start
         </button>
         <button
@@ -80,7 +88,8 @@ export default function LandingPageStatus({
           type="button"
           onClick={() => infrastructure("stop")}
           disabled={action !== null || infrastructureStatus === "stopped"}
-          aria-pressed={infrastructureStatus === "stopped"}>
+          aria-pressed={infrastructureStatus === "stopped"}
+        >
           Stop
         </button>
       </div>

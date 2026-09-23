@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-import { sshApi } from "./sshApi";
-import type { SshCredentials, SshSession } from "./sshTypes";
+import { sshApi } from "../../../api/ssh/sshApi";
+import type { SshCredentials, SshSession } from "../../../api/ssh/sshTypes";
 
 export function useSshLogin(onConnected: (session: SshSession) => void) {
   // Manage the SSH login request and its UI state.
@@ -16,7 +16,11 @@ export function useSshLogin(onConnected: (session: SshSession) => void) {
       onConnected({ hostname: credentials.hostname, username: credentials.username });
       return true;
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Could not connect to the Raspberry Pi.");
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not connect to the Raspberry Pi.",
+      );
       return false;
     } finally {
       setIsLoading(false);

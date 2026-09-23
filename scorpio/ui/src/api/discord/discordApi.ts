@@ -1,35 +1,33 @@
 import { requestJson } from "../http";
 
-export type DiscordSettings = {
-  configured: boolean;
-  channels: Record<string, string>;
-  error_alert_gap_minutes: number;
-};
-
-type DiscordResponse = { message: string };
+import type { DiscordSettings, DiscordResponse } from "./discordTypes";
+import { endpoints } from "../endpoints";
 
 export function getDiscordSettings() {
-  return requestJson<DiscordSettings>("/discord/settings");
+  return requestJson<DiscordSettings>(endpoints.discord.settings);
 }
 export function setupDiscord(token: string) {
   console.log("setupDiscord", token);
-  return requestJson<DiscordResponse & { configured: boolean }>("/discord/setup",
-    { method: "POST", body: JSON.stringify({ token }) }
-  );
+  return requestJson<DiscordResponse & { configured: boolean }>(endpoints.discord.setup, {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
 }
 export function setDiscordChannel(tag: string, channel_id: string) {
-  return requestJson<DiscordResponse & { channels: Record<string, string> }>("/discord/set-channel",
-    { method: "POST", body: JSON.stringify({ tag, channel_id }) }
+  return requestJson<DiscordResponse & { channels: Record<string, string> }>(
+    endpoints.discord.channel,
+    { method: "POST", body: JSON.stringify({ tag, channel_id }) },
   );
 }
 export function setDiscordAlertGap(minutes: number) {
-  return requestJson<DiscordResponse & { minutes: number }>("/discord/set-alert-gap",
-    { method: "POST", body: JSON.stringify({ minutes }) }
-  );
+  return requestJson<DiscordResponse & { minutes: number }>(endpoints.discord.alertGap, {
+    method: "POST",
+    body: JSON.stringify({ minutes }),
+  });
 }
 
 export function removeDiscord() {
-  return requestJson<DiscordResponse & { configured: boolean }>("/discord/remove", {
+  return requestJson<DiscordResponse & { configured: boolean }>(endpoints.discord.remove, {
     method: "POST",
     body: JSON.stringify({}),
   });
