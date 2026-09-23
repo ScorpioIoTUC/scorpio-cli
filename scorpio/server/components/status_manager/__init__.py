@@ -1,3 +1,5 @@
-from .main import StatusManager
+"""Compatibility imports; implementations live in infrastructure."""
 
-__all__ = ["StatusManager"]
+from scorpio.server.infrastructure.status_manager.__init__ import (
+    StatusManager as StatusManager,
+)
