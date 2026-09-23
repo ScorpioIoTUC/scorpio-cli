@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { sshApi } from "./sshApi";
+import { sshApi } from "../../../api/ssh/sshApi";
 
 export function useSshLogout(onDisconnected: () => void) {
   // Manage disconnect requests and expose their UI state.
@@ -14,7 +14,9 @@ export function useSshLogout(onDisconnected: () => void) {
       await sshApi.logout();
       onDisconnected();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Could not close the connection.");
+      setError(
+        requestError instanceof Error ? requestError.message : "Could not close the connection.",
+      );
     } finally {
       setIsLoading(false);
     }

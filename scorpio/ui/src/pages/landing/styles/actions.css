@@ -1,0 +1,80 @@
+.setup-status,
+.logs-count {
+  padding: 0.38rem 0.6rem;
+  border-radius: 0.45rem;
+  color: #6a5aa6;
+  background: #eae6f8;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.setup-status--running {
+  color: #96620c;
+  background: #fff2d2;
+}
+
+.setup-status--completed {
+  color: #267047;
+  background: #e1f5e8;
+}
+
+.setup-status--failed {
+  color: #9c2734;
+  background: #ffe4e7;
+}
+
+.setup-progress {
+  width: 100%;
+  height: 0.42rem;
+  margin-top: 0.5rem;
+  accent-color: var(--color-primary);
+}
+
+.setup-button {
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-radius: 0.65rem;
+  color: white;
+  background: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.setup-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.infrastructure-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.infrastructure-state {
+  margin-right: auto;
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.infrastructure-state--running {
+  color: #267047;
+}
+
+.infrastructure-state--stopped {
+  color: #9c2734;
+}
+
+.setup-button--secondary {
+  color: #4b43a8;
+  background: #e8e6fb;
+}
+
+.setup-button--danger {
+  background: #b83c4c;
+}

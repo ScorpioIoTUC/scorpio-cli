@@ -1,3 +1,4 @@
+/** Installation step emitted by setup; timestamp is an ISO date string. */
 export type SetupLog = {
   level: string;
   module: string;
@@ -8,6 +9,7 @@ export type SetupLog = {
   timestamp: string;
 };
 
+/** Existing wire format; casing follows the backend rather than UI conventions. */
 export type SetupStatus = {
   status: "idle" | "running" | "completed" | "failed";
   error: string | null;
@@ -30,13 +32,14 @@ export type InfrastructureService = {
 
 export type InfrastructureStatus = {
   status: "running" | "stopped";
-  services: InfrastructureService[];
+  /** The setup status endpoint currently returns only status. */
+  services?: InfrastructureService[];
 };
 
-export type SetupEvent =
-  | { type: "status"; data: SetupStatus }
-  | { type: "log"; data: SetupLog };
+/** Discriminated SSE messages: full state or a single appended log. */
+export type SetupEvent = { type: "status"; data: SetupStatus } | { type: "log"; data: SetupLog };
 
+/** Docker log fields may be unavailable when parsing raw command output. */
 export type DockerLog = {
   service: string;
   timestamp: string | null;
@@ -50,3 +53,6 @@ export type DockerLogEvent = {
   source: "docker";
   data: DockerLog;
 };
+
+/** Accepted setup request; this acknowledges start, not completion. */
+export type StartSetupResponse = { status: "running"; message: string };

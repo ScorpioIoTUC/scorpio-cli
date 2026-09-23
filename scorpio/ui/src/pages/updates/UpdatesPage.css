@@ -39,9 +39,9 @@
 }
 
 .updates-title-row h1 {
-  margin: .45rem 0;
+  margin: 0.45rem 0;
   font-size: clamp(2rem, 5vw, 3rem);
-  letter-spacing: -.04em;
+  letter-spacing: -0.04em;
 }
 
 .updates-title-row p,
@@ -54,9 +54,9 @@
 .updates-refresh,
 .updates-notice button {
   flex: 0 0 auto;
-  padding: .7rem 1rem;
+  padding: 0.7rem 1rem;
   border: 0;
-  border-radius: .65rem;
+  border-radius: 0.65rem;
   color: #fff;
   background: var(--color-primary);
   font-weight: 800;
@@ -66,7 +66,7 @@
 .updates-refresh:disabled,
 .updates-notice button:disabled {
   cursor: wait;
-  opacity: .6;
+  opacity: 0.6;
 }
 
 .updates-notice {
@@ -77,18 +77,18 @@
   margin-top: 1.5rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--color-border);
-  border-radius: .9rem;
+  border-radius: 0.9rem;
   background: var(--color-surface);
 }
 
 .updates-notice div {
   display: grid;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 
 .updates-notice span {
   color: var(--color-muted);
-  font-size: .82rem;
+  font-size: 0.82rem;
 }
 
 .updates-notice--available {
@@ -129,20 +129,20 @@
 
 .version-card__label {
   color: var(--color-muted);
-  font-size: .72rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.version-card>strong {
+.version-card > strong {
   font-size: 2rem;
-  letter-spacing: -.04em;
+  letter-spacing: -0.04em;
 }
 
 .version-card dl {
   display: grid;
-  gap: .65rem;
+  gap: 0.65rem;
   margin: 0;
 }
 
@@ -154,19 +154,19 @@
 
 .version-card dt {
   color: var(--color-muted);
-  font-size: .78rem;
+  font-size: 0.78rem;
 }
 
 .version-card dd {
   margin: 0;
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-align: right;
 }
 
 .version-card a {
   margin-top: auto;
-  font-size: .8rem;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 680px) {

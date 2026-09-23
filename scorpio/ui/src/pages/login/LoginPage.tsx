@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useSshLogin } from "../../api/ssh/useSshLogin";
+import { useSshLogin } from "./hooks/useSshLogin";
 import type { SshCredentials, SshSession } from "../../api/ssh/sshTypes";
 import { Brand } from "../../components/Brand/Brand";
 import "./LoginPage.css";
@@ -11,7 +11,11 @@ type LoginPageProps = { onConnected: (session: SshSession) => void };
 export function LoginPage({ onConnected }: LoginPageProps) {
   // Collect credentials and establish the remote SSH session.
   const navigate = useNavigate();
-  const [credentials, setCredentials] = useState<SshCredentials>({ hostname: "", username: "", password: "" });
+  const [credentials, setCredentials] = useState<SshCredentials>({
+    hostname: "",
+    username: "",
+    password: "",
+  });
   const [showPassword, setShowPassword] = useState(false);
   const { login, isLoading, error } = useSshLogin(onConnected);
 
@@ -55,7 +59,8 @@ export function LoginPage({ onConnected }: LoginPageProps) {
                 placeholder="192.x.y.z"
                 autoComplete="off"
                 spellCheck="false"
-                required />
+                required
+              />
               <small>Example: raspberrypi.local or 192.168.1.100</small>
             </label>
 
@@ -67,7 +72,8 @@ export function LoginPage({ onConnected }: LoginPageProps) {
                 onChange={(event) => updateField("username", event.target.value)}
                 placeholder="scorpio"
                 autoComplete="username"
-                required />
+                required
+              />
             </label>
 
             <label className="field">
@@ -79,33 +85,44 @@ export function LoginPage({ onConnected }: LoginPageProps) {
                   value={credentials.password}
                   onChange={(event) => updateField("password", event.target.value)}
                   placeholder="Your SSH password"
-                  autoComplete="current-password" required />
+                  autoComplete="current-password"
+                  required
+                />
                 <button
                   type="button"
                   className="password-input__toggle"
                   onClick={() => setShowPassword((visible) => !visible)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}>
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </span>
             </label>
 
-            {error &&
+            {error && (
               <div className="form-alert" role="alert">
                 <span aria-hidden="true">!</span>
                 <p>{error}</p>
-              </div>}
+              </div>
+            )}
 
             <button className="primary-button" type="submit" disabled={isLoading}>
-              {isLoading
-                ? <>
+              {isLoading ? (
+                <>
                   <span className="spinner" aria-hidden="true" />
-                  Connecting...</>
-                : <>Access <span aria-hidden="true">→</span></>}
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  Access <span aria-hidden="true">→</span>
+                </>
+              )}
             </button>
           </form>
 
-          <p className="login-panel__hint">Ensure that both devices are connected to the same local network.</p>
+          <p className="login-panel__hint">
+            Ensure that both devices are connected to the same local network.
+          </p>
         </div>
       </section>
     </main>

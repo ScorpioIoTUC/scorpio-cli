@@ -30,21 +30,27 @@ export default function App() {
         <Route
           path="/login"
           element={
-            session
-              ? <Navigate to="/" replace />
-              : <LoginPage onConnected={handleConnected} />} />
+            session ? <Navigate to="/" replace /> : <LoginPage onConnected={handleConnected} />
+          }
+        />
         <Route
           path="/settings"
-          element={session ? <SettingsPage /> : <Navigate to="/login" replace />} />
+          element={session ? <SettingsPage /> : <Navigate to="/login" replace />}
+        />
         <Route
           path="/updates"
-          element={session ? <UpdatesPage /> : <Navigate to="/login" replace />} />
+          element={session ? <UpdatesPage /> : <Navigate to="/login" replace />}
+        />
         <Route
           path="/"
           element={
-            session
-              ? <LandingPage session={session} onDisconnected={handleDisconnected} />
-              : <Navigate to="/login" replace />} />
+            session ? (
+              <LandingPage session={session} onDisconnected={handleDisconnected} />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
         <Route path="*" element={<Navigate to={session ? "/" : "/login"} replace />} />
       </Routes>
     </HashRouter>
