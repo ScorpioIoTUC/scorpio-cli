@@ -29,7 +29,7 @@ export async function requestJson<T>(
 
   if (!response.ok) {
     throw new ApiError(
-      payload.error ?? payload.message ?? "No se pudo completar la solicitud.",
+      payload.error ?? payload.message ?? "The request could not be completed.",
       response.status,
     );
   }

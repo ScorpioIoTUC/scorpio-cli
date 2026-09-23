@@ -17,6 +17,7 @@ maintainers = [
 ]
 dependencies = [
     "paramiko>=3.5,<4",
+    "requests>=2.31,<3",
     "tzlocal>=5,<6",
 ]
 

@@ -42,7 +42,7 @@ export function LoginPage({ onConnected }: LoginPageProps) {
           <div className="login-panel__heading">
             <span className="eyebrow">SSH Connection</span>
             <h2 id="login-title">Access your Raspberry Pi</h2>
-            <p>Enter your Raspberry Pi host name and the SSh credentials (username and password).</p>
+            <p>Enter your Raspberry Pi hostname and SSH credentials.</p>
           </div>
 
           <form className="login-form" onSubmit={handleSubmit}>
@@ -60,7 +60,7 @@ export function LoginPage({ onConnected }: LoginPageProps) {
             </label>
 
             <label className="field">
-              <span>User</span>
+              <span>Username</span>
               <input
                 name="username"
                 value={credentials.username}
@@ -84,8 +84,8 @@ export function LoginPage({ onConnected }: LoginPageProps) {
                   type="button"
                   className="password-input__toggle"
                   onClick={() => setShowPassword((visible) => !visible)}
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
-                  {showPassword ? "Ocultar" : "Mostrar"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}>
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </span>
             </label>

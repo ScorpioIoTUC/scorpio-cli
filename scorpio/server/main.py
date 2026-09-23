@@ -1,5 +1,6 @@
 import queue
 import json
+import subprocess
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -14,6 +15,7 @@ from scorpio.server.config import (
     UI_DIR,
     SERVER_STORAGE_PATH,
     SERVER_STORAGE_INIT_DATA,
+    SCORPIO_PROJECT_DIR,
 )
 from scorpio.cli.clients.github.github_contract import GithubContract
 from scorpio.cli.host.host import Host
@@ -243,14 +245,13 @@ class Handler(SimpleHTTPRequestHandler):
                 "error": "Failed to stop Scorpio."
             }, HTTPStatus.INTERNAL_SERVER_ERROR
 
-    
     def _close_connection(self) -> None:
         """Close the SSH connection and update the storage to reflect that the connection is no longer active."""
         self.remote_executor.close()
         storage = self.storage_handler.get()
         storage.setdefault("ssh", {})["is_active"] = False
         self.storage_handler.update(storage)
-    
+
     def _start_scorpio(self) -> tuple[dict, HTTPStatus]:
         try:
             self._execute_remote("make start")
@@ -285,6 +286,119 @@ class Handler(SimpleHTTPRequestHandler):
         threading.Thread(target=reboot_remote_host, daemon=True).start()
         return {"message": "Raspberry Pi reboot requested."}, HTTPStatus.ACCEPTED
 
+    def _get_setup_token(self) -> tuple[dict, HTTPStatus]:
+        storage = self.storage_handler.get()
+        token_config = storage.get("token_config", {})
+        if not token_config:
+            return {"error": "Setup token not found."}, HTTPStatus.NOT_FOUND
+        api_url = token_config.get("api_url")
+        token = token_config.get("token")
+        if not api_url or not token:
+            return {
+                "error": "Setup token is incomplete."
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+
+        return {
+            "api_url": api_url,
+            "token": token,
+        }, HTTPStatus.OK
+
+    def _set_setup_token(self, body) -> tuple[dict, HTTPStatus]:
+        storage = self.storage_handler.get()
+
+        api_url = body.get("api_url")
+        token = body.get("token")
+        if not api_url or not token:
+            return {
+                "error": "Missing required fields: api_url and token are required."
+            }, HTTPStatus.BAD_REQUEST
+        # Read the .env file from Scorpio Project and update with the new token and api_url
+        env_file_path = SCORPIO_PROJECT_DIR / ".env"
+        # Read the existing .env file
+        env_vars = {}
+        if env_file_path.exists():
+            with open(env_file_path, "r") as env_file:
+                for line in env_file:
+                    if "=" in line:
+                        key, value = line.strip().split("=", 1)
+                        env_vars[key] = value
+        # Update the token and api_url
+        env_vars["SCORPIO_API_URL"] = api_url
+        env_vars["SCORPIO_API_TOKEN"] = token
+        # Write the updated .env file
+        with open(env_file_path, "w") as env_file:
+            for key, value in env_vars.items():
+                env_file.write(f"{key}={value}\n")
+        # Update the storage with the new token and api_url
+        storage["token_config"] = {
+            "api_url": api_url,
+            "token": token,
+        }
+        self.storage_handler.update(storage)
+
+        return {"message": "Setup token updated."}, HTTPStatus.OK
+
+    def _update_scorpio(self) -> tuple[dict, HTTPStatus]:
+        previous_version = Host.get_package_version("scorpio-cli")
+        # Check if the pypi.org version is newer than the installed version
+        pypi_version = self.status_manager.get_pypi_last_version()
+        current_version = pypi_version.get("current_version")
+        latest_version = pypi_version.get("latest_version")
+        if current_version == "unknown" or latest_version == "unknown":
+            return {
+                "error": "Unable to determine the current or latest version of Scorpio CLI."
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        elif current_version == latest_version:
+            return {
+                "message": "Scorpio CLI is already up to date.",
+                "previous_version": current_version,
+                "installed_version": current_version,
+                "restart_required": False,
+            }, HTTPStatus.OK
+
+        try:
+            command = [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "scorpio-cli",
+            ]
+
+            # Scorpio CLI belongs to the local UI host, not the remote Raspberry Pi.
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            installed_version = Host.get_package_version("scorpio-cli")
+            if not installed_version:
+                raise RuntimeError(
+                    "Unable to verify the installed Scorpio CLI version."
+                )
+
+            self.storage_handler.update_scorpio_cli_version(installed_version)
+
+            return {
+                "message": "Scorpio CLI updated successfully.",
+                "previous_version": previous_version,
+                "installed_version": installed_version,
+                "restart_required": True,
+            }, HTTPStatus.OK
+        except subprocess.CalledProcessError as error:
+            details = (error.stderr or error.stdout or "").strip()
+            logging.error("Error updating Scorpio CLI: %s", details or error)
+            return {
+                "error": "Failed to update Scorpio CLI.",
+                "details": details,
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        except (OSError, RuntimeError, ValueError) as error:
+            logging.error("Error updating Scorpio CLI: %s", error)
+            return {"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR
+
     def do_GET(self):
         # Get endpoints
         if self.path == "/version":
@@ -293,19 +407,18 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(self._get_setup_status())
         elif self.path == "/scorpio/setup/events":
             self._send_setup_events()
-
         elif self.path == "/scorpio/stop":
             self.send_json(*self._stop_scorpio())
-
         elif self.path == "/scorpio/start":
             self.send_json(*self._start_scorpio())
-
         elif self.path == "/scorpio/logs/live":
             self._send_live_logs()
-
         elif self.path == "/discord/settings":
             self.send_json(self.discord_handler.get_settings())
-
+        elif self.path == "/scorpio/setup/token":
+            self.send_json(*self._get_setup_token())
+        elif self.path == "/scorpio/update":
+            self.send_json(self.status_manager.get_pypi_last_version())
         else:
             super().do_GET()
 
@@ -323,17 +436,23 @@ class Handler(SimpleHTTPRequestHandler):
         elif self.path == "/discord/setup":
             self.send_json(*self.discord_handler.setup(body.get("token")))
         elif self.path == "/discord/set-channel":
-            self.send_json(*self.discord_handler.set_channel(
-                body.get("tag"), body.get("channel_id")
-            ))
+            self.send_json(
+                *self.discord_handler.set_channel(
+                    body.get("tag"), body.get("channel_id")
+                )
+            )
         elif self.path == "/discord/set-alert-gap":
             self.send_json(*self.discord_handler.set_alert_gap(body.get("minutes")))
         elif self.path == "/discord/remove":
             self.send_json(*self.discord_handler.remove())
         elif self.path == "/discord/notify":
-            self.send_json(*self.discord_handler.notify(
-                body.get("message"), body.get("tag")
-            ))
+            self.send_json(
+                *self.discord_handler.notify(body.get("message"), body.get("tag"))
+            )
+        elif self.path == "/scorpio/setup/token":
+            self.send_json(*self._set_setup_token(body))
+        elif self.path == "/scorpio/update":
+            self.send_json(*self._update_scorpio())
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
@@ -422,9 +541,9 @@ def run_server(github_client: GithubContract):
     storage_handler.create()
 
     setup_manager = SetupManager()
-    remote_executor = RemoteExecutor(storage_handler=storage_handler)
+    remote_executor = RemoteExecutor(storage_handler)
     live_logs_manager = LiveLogsManager(remote_executor)
-    status_manager = StatusManager(remote_executor)
+    status_manager = StatusManager(remote_executor, storage_handler)
     discord_handler = DiscordHandler(storage_handler)
 
     handler = partial(

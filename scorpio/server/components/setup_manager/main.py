@@ -83,7 +83,7 @@ class SetupManager:
                 "lastLog": current_log.to_dict() if current_log else None,
                 "logs": [log.to_dict() for log in self._logs],
             }
-
+    
     def start(
         self,
         executor: RemoteExecutor,

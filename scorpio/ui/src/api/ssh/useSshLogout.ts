@@ -14,7 +14,7 @@ export function useSshLogout(onDisconnected: () => void) {
       await sshApi.logout();
       onDisconnected();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "No fue posible cerrar la conexión.");
+      setError(requestError instanceof Error ? requestError.message : "Could not close the connection.");
     } finally {
       setIsLoading(false);
     }

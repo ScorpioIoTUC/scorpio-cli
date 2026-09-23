@@ -82,6 +82,26 @@ class StorageHandler:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             self._write(data)
 
+    def update_scorpio_cli_version(self, version: str) -> None:
+        """Persist the Scorpio CLI version without replacing the setup data."""
+        if not version:
+            raise ValueError("Scorpio CLI version cannot be empty.")
+
+        with self._lock:
+            storage = self.get()
+            setup = storage.get("setup")
+            if not isinstance(setup, dict):
+                setup = {}
+                storage["setup"] = setup
+
+            versions = setup.get("version")
+            if not isinstance(versions, dict):
+                versions = {}
+                setup["version"] = versions
+
+            versions["scorpio_cli"] = version
+            self.update(storage)
+
     def _write(self, data: dict[str, Any]) -> None:
         with self._path.open("w", encoding="utf-8") as storage_file:
             json.dump(data, storage_file, indent=4)

@@ -23,9 +23,11 @@ export function LandingPage({ session, onDisconnected }: LandingPageProps) {
         <button className="text-button" type="button" onClick={() => navigate("/settings")}>
           Settings
         </button>
-        <span className="connection-status"><span aria-hidden="true" /> Conectado</span>
-        <button className="text-button" type="button" onClick={logout} disabled={isLoading}>
-          {isLoading ? "Desconectando…" : "Desconectar"}
+        <button className="text-button" type="button" onClick={() => navigate("/updates")}>
+          Updates
+        </button>
+        <button style={{color: 'var(--color-primary)'}} className="text-button" type="button" onClick={logout} disabled={isLoading}>
+          {isLoading ? "Disconnecting…" : "Disconnect"}
         </button>
       </div>
     </header>
