@@ -1,13 +1,5 @@
-from dataclasses import asdict, dataclass
+"""Compatibility imports; implementations live in infrastructure."""
 
-
-@dataclass(frozen=True)
-class DockerLog:
-    service: str
-    timestamp: str | None
-    level: str | None
-    layer: str | None
-    message: str
-
-    def to_dict(self) -> dict:
-        return asdict(self)
+from scorpio.server.infrastructure.live_logs_manager.types import (
+    DockerLog as DockerLog,
+)

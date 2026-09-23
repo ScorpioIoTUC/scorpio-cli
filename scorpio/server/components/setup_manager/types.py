@@ -1,15 +1,5 @@
-from dataclasses import dataclass, asdict
+"""Compatibility imports; implementations live in infrastructure."""
 
-@dataclass(frozen=True)
-class SetupLog:
-    level: str
-    module: str
-    step: int | None
-    total_steps: int | None
-    step_id: str | None
-    message: str
-    timestamp: str
-
-    def to_dict(self) -> dict:
-        return asdict(self)
-
+from scorpio.server.infrastructure.setup_manager.types import (
+    SetupLog as SetupLog,
+)
