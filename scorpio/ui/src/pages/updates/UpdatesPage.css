@@ -169,6 +169,41 @@
   font-size: .8rem;
 }
 
+.project-update-button {
+  padding: .75rem 1rem;
+  border: 1px solid #e1ad3c;
+  border-radius: .65rem;
+  color: #664400;
+  background: #ffd873;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.project-update-button:hover:not(:disabled) {
+  background: #ffcc4d;
+}
+
+.project-update-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.project-update-error {
+  display: grid;
+  gap: .3rem;
+  padding: .75rem;
+  border: 1px solid #f2c3c8;
+  border-radius: .65rem;
+  color: #9c2734;
+  background: #fff5f6;
+  font-size: .76rem;
+  white-space: pre-wrap;
+}
+
+.project-update-error span {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 680px) {
   .updates-content {
     padding: 2.5rem 0;

@@ -1,6 +1,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
-type ErrorPayload = { error?: string; message?: string };
+type ErrorPayload = { error?: string; message?: string; details?: string };
 
 export class ApiError extends Error {
   readonly status: number;
@@ -28,8 +28,9 @@ export async function requestJson<T>(
   const payload = (await response.json().catch(() => ({}))) as T & ErrorPayload;
 
   if (!response.ok) {
+    const message = payload.error ?? payload.message ?? "The request could not be completed.";
     throw new ApiError(
-      payload.error ?? payload.message ?? "The request could not be completed.",
+      payload.details ? `${message} ${payload.details}` : message,
       response.status,
     );
   }

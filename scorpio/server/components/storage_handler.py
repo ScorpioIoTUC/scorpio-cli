@@ -102,6 +102,31 @@ class StorageHandler:
             versions["scorpio_cli"] = version
             self.update(storage)
 
+    def update_scorpio_project_version(self, version: str) -> None:
+        """Persist the Scorpio Project version without replacing setup data."""
+        if not version:
+            raise ValueError("Scorpio Project version cannot be empty.")
+
+        with self._lock:
+            storage = self.get()
+            setup = storage.get("setup")
+            if not isinstance(setup, dict):
+                setup = {}
+                storage["setup"] = setup
+
+            versions = setup.get("version")
+            if not isinstance(versions, dict):
+                versions = {}
+                setup["version"] = versions
+
+            versions["scorpio_project"] = version
+            infrastructure = storage.get("docker_infra")
+            if not isinstance(infrastructure, dict):
+                infrastructure = {}
+                storage["docker_infra"] = infrastructure
+            infrastructure["status"] = "running"
+            self.update(storage)
+
     def _write(self, data: dict[str, Any]) -> None:
         with self._path.open("w", encoding="utf-8") as storage_file:
             json.dump(data, storage_file, indent=4)
