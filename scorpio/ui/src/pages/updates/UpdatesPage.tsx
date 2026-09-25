@@ -3,10 +3,14 @@ import { Link } from "react-router-dom";
 
 import { getVersion } from "../../api/setup/setupApi";
 import {
+  getProjectUpdateStatus,
   getScorpioUpdateStatus,
+  updateProjectServices,
   updateScorpio,
 } from "../../api/update/updateApi";
 import type {
+  ProjectUpdateResult,
+  ProjectUpdateStatus,
   ScorpioUpdateResult,
   ScorpioUpdateStatus,
 } from "../../api/update/updateTypes";
@@ -31,22 +35,30 @@ export function UpdatesPage() {
   const [versions, setVersions] = useState<ProjectVersions | null>(null);
   const [status, setStatus] = useState<ScorpioUpdateStatus | null>(null);
   const [result, setResult] = useState<ScorpioUpdateResult | null>(null);
+  const [projectStatus, setProjectStatus] = useState<ProjectUpdateStatus | null>(null);
+  const [projectResult, setProjectResult] = useState<ProjectUpdateResult | null>(null);
+  const [projectError, setProjectError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [updatingProject, setUpdatingProject] = useState(false);
 
   const loadUpdateInformation = useCallback(async () => {
     setLoading(true);
     setError("");
     setResult(null);
+    setProjectResult(null);
+    setProjectError("");
 
     try {
-      const [installedVersions, updateStatus] = await Promise.all([
+      const [installedVersions, updateStatus, remoteProjectStatus] = await Promise.all([
         getVersion(),
         getScorpioUpdateStatus(),
+        getProjectUpdateStatus(),
       ]);
       setVersions(installedVersions);
       setStatus(updateStatus);
+      setProjectStatus(remoteProjectStatus);
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -65,6 +77,7 @@ export function UpdatesPage() {
   async function handleUpdate() {
     setUpdating(true);
     setError("");
+    setProjectError("");
     setResult(null);
 
     try {
@@ -87,6 +100,40 @@ export function UpdatesPage() {
       );
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function handleProjectUpdate() {
+    const action = projectStatus?.need_to_update ? "update" : "rebuild";
+    if (!window.confirm(
+      `This will ${action} Scorpio Project and recreate all Docker services. Continue?`,
+    )) return;
+
+    setUpdatingProject(true);
+    setError("");
+    setProjectError("");
+    setProjectResult(null);
+
+    try {
+      const updateResult = await updateProjectServices();
+      setProjectResult(updateResult);
+      setProjectStatus((current) => current && {
+        ...current,
+        current_version: updateResult.installed_version,
+        need_to_update: false,
+      });
+      setVersions((current) => current && {
+        ...current,
+        scorpio_project: updateResult.installed_version,
+      });
+    } catch (requestError) {
+      setProjectError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Scorpio services could not be updated.",
+      );
+    } finally {
+      setUpdatingProject(false);
     }
   }
 
@@ -119,7 +166,7 @@ export function UpdatesPage() {
             className="updates-refresh"
             type="button"
             onClick={() => void loadUpdateInformation()}
-            disabled={loading || updating}
+            disabled={loading || updating || updatingProject}
           >
             {loading ? "Checking..." : "Check again"}
           </button>
@@ -167,6 +214,17 @@ export function UpdatesPage() {
           </div>
         )}
 
+        {projectResult && (
+          <div className="updates-notice updates-notice--success" role="status">
+            <div>
+              <strong>{projectResult.message}</strong>
+              <span>
+                Scorpio Project {projectResult.installed_version} is running with rebuilt images.
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="updates-grid" aria-busy={loading}>
           <article className="version-card">
             <span className="version-card__label">Scorpio CLI</span>
@@ -180,8 +238,40 @@ export function UpdatesPage() {
 
           <article className="version-card">
             <span className="version-card__label">Scorpio Project</span>
-            <strong>{versions?.scorpio_project ?? "—"}</strong>
-            <p>The installation version currently associated with Scorpio.</p>
+            <strong>{projectStatus?.current_version ?? versions?.scorpio_project ?? "—"}</strong>
+            <dl>
+              <div>
+                <dt>Latest release</dt>
+                <dd>{projectStatus?.latest_version ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Remote connection</dt>
+                <dd>{projectStatus?.ssh_active ? "Connected" : "Disconnected"}</dd>
+              </div>
+            </dl>
+            <p>
+              {projectStatus?.need_to_update
+                ? "A newer release is available for the Raspberry Pi."
+                : "Rebuild the Docker images to apply the current project code."}
+            </p>
+            {projectError && (
+              <div className="project-update-error" role="alert">
+                <strong>Infrastructure update failed.</strong>
+                <span>{projectError}</span>
+              </div>
+            )}
+            <button
+              className="project-update-button"
+              type="button"
+              onClick={() => void handleProjectUpdate()}
+              disabled={updatingProject || updating || !projectStatus?.ssh_active}
+            >
+              {updatingProject
+                ? "Updating services..."
+                : projectStatus?.need_to_update
+                  ? "Update infrastructure"
+                  : "Rebuild services"}
+            </button>
             <a href={SCORPIO_PROJECT_URL} target="_blank" rel="noopener noreferrer">View on GitHub</a>
           </article>
         </div>

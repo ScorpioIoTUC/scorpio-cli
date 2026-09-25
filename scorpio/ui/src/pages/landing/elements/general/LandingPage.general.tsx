@@ -368,16 +368,43 @@ function getServiceColor(service: string): string {
   return serviceColors[(hash >>> 0) % serviceColors.length];
 }
 
+function formatStructuredMessage(message: string) {
+  // Pretty-print a JSON object embedded after a human-readable log prefix.
+  const objectIndex = message.indexOf("{");
+  const arrayIndex = message.indexOf("[");
+  const indexes = [objectIndex, arrayIndex].filter((index) => index >= 0);
+  if (indexes.length === 0) return null;
+
+  const jsonIndex = Math.min(...indexes);
+  try {
+    return {
+      prefix: message.slice(0, jsonIndex).trim(),
+      json: JSON.stringify(JSON.parse(message.slice(jsonIndex)), null, 2),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function LogRowDetail({ log }: { log: SetupLog | DockerLog }) {
   // Render a detailed view of a single log entry.
   const docker = "service" in log;
   const timestamp = log.timestamp ?? new Date().toISOString();
   const level = log.level ?? "info";
+  const structuredMessage = formatStructuredMessage(log.message);
   return <div className="log-detail-card">
     <div><strong>Source:</strong> {docker ? log.service : log.module}</div>
     <div><strong>Date / time:</strong> {new Date(timestamp).toLocaleString("en-US")}</div>
     <div><strong>Level:</strong> {level.toUpperCase()}</div>
     <div><strong>Layer:</strong> {docker ? log.layer ?? "service" : log.step_id ?? "setup"}</div>
-    <div><strong>Message:</strong> {log.message}</div>
+    <div className="log-detail-message">
+      <strong>Message:</strong>
+      {structuredMessage
+        ? <>
+          {structuredMessage.prefix && <span>{structuredMessage.prefix}</span>}
+          <pre>{structuredMessage.json}</pre>
+        </>
+        : <span>{log.message}</span>}
+    </div>
   </div>;
 }

@@ -42,6 +42,29 @@ class StorageVersionTests(unittest.TestCase):
             self.assertEqual(setup["version"]["scorpio_project"], "0.0.7")
             self.assertEqual(setup["version"]["scorpio_cli"], "0.1.0.10")
 
+    def test_project_version_update_preserves_cli_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            storage = StorageHandler.get_instance(
+                path=Path(temporary_directory) / "storage.json",
+                initial_data={
+                    "setup": {
+                        "completed": True,
+                        "version": {
+                            "scorpio_project": "0.0.7",
+                            "scorpio_cli": "0.1.0.10",
+                        },
+                    }
+                },
+            )
+            storage.create()
+
+            storage.update_scorpio_project_version("0.0.8")
+
+            data = storage.get()
+            self.assertEqual(data["setup"]["version"]["scorpio_project"], "0.0.8")
+            self.assertEqual(data["setup"]["version"]["scorpio_cli"], "0.1.0.10")
+            self.assertEqual(data["docker_infra"]["status"], "running")
+
 
 class ScorpioUpdateTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -123,6 +146,60 @@ class ScorpioUpdateTests(unittest.TestCase):
         self.handler.storage_handler.update_scorpio_cli_version.assert_not_called()
         self.assertEqual(status, HTTPStatus.INTERNAL_SERVER_ERROR)
         self.assertEqual(payload["details"], "upgrade failed")
+
+
+class ProjectUpdateTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.handler = Handler.__new__(Handler)
+        self.handler.storage_handler = Mock()
+        self.handler.remote_executor = Mock()
+        self.handler.remote_executor.is_connected = True
+        self.handler.github_client = Mock()
+        self.handler.github_client.get_latest_release.return_value.version = "0.0.8"
+
+    def test_project_update_checks_out_release_and_rebuilds_services(self) -> None:
+        self.handler._installed_project_version = Mock(return_value="0.0.7")
+        self.handler.remote_executor.stream.return_value = iter([])
+
+        payload, status = self.handler._update_project_services()
+
+        command = self.handler.remote_executor.stream.call_args.args[0]
+        self.assertIn("refs/tags/0.0.8", command)
+        self.assertIn("--build --force-recreate", command)
+        self.assertIn("systemctl daemon-reload", command)
+        self.assertIn("systemctl restart", command)
+        self.assertIn("systemctl is-active --quiet", command)
+        self.handler.storage_handler.update_scorpio_project_version.assert_called_once_with(
+            "0.0.8"
+        )
+        self.assertEqual(status, HTTPStatus.OK)
+        self.assertEqual(payload["installed_version"], "0.0.8")
+        self.assertTrue(payload["services_recreated"])
+
+    def test_project_update_requires_ssh_connection(self) -> None:
+        self.handler.remote_executor.is_connected = False
+
+        payload, status = self.handler._update_project_services()
+
+        self.handler.remote_executor.stream.assert_not_called()
+        self.assertEqual(status, HTTPStatus.BAD_REQUEST)
+        self.assertEqual(payload["error"], "No active SSH connection.")
+
+    def test_project_update_returns_remote_output_on_failure(self) -> None:
+        self.handler._installed_project_version = Mock(return_value="0.0.7")
+
+        def failed_stream(_command):
+            yield "Building data-ingest"
+            yield "Dockerfile: package installation failed"
+            raise RuntimeError("Remote command failed with code 1")
+
+        self.handler.remote_executor.stream.side_effect = failed_stream
+
+        payload, status = self.handler._update_project_services()
+
+        self.assertEqual(status, HTTPStatus.INTERNAL_SERVER_ERROR)
+        self.assertIn("package installation failed", payload["details"])
+        self.handler.storage_handler.update_scorpio_project_version.assert_not_called()
 
 
 if __name__ == "__main__":

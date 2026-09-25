@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 import threading
+from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from functools import partial
 from http import HTTPStatus
@@ -34,6 +35,8 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Handler(SimpleHTTPRequestHandler):
+    _project_update_lock = threading.Lock()
+
     def __init__(
         self,
         *args,
@@ -468,6 +471,114 @@ class Handler(SimpleHTTPRequestHandler):
             logging.error("Error updating Scorpio CLI: %s", error)
             return {"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR
 
+    def _installed_project_version(self) -> str:
+        """Read the checked-out release from the Raspberry Pi when possible."""
+        if self.remote_executor.is_connected:
+            command = (
+                "git -C ~/.local/share/scorpio/Scorpio-Project "
+                "describe --tags --exact-match HEAD"
+            )
+            try:
+                version = "".join(self.remote_executor.stream(command)).strip()
+                if version:
+                    return version.splitlines()[-1].strip()
+            except (ConnectionError, RuntimeError, OSError):
+                pass
+
+        storage = self.storage_handler.get()
+        setup = storage.get("setup") or {}
+        versions = setup.get("version") or {}
+        return versions.get("scorpio_project", "unknown")
+
+    def _get_project_update_status(self) -> tuple[dict, HTTPStatus]:
+        """Compare the remote project checkout with the latest GitHub Release."""
+        try:
+            latest_version = self.github_client.get_latest_release().version
+        except Exception as error:
+            logging.error("Error checking Scorpio Project release: %s", error)
+            return {
+                "error": "Unable to check the latest Scorpio Project release."
+            }, HTTPStatus.BAD_GATEWAY
+
+        installed_version = self._installed_project_version()
+        return {
+            "current_version": installed_version,
+            "latest_version": latest_version,
+            "need_to_update": installed_version != latest_version,
+            "ssh_active": self.remote_executor.is_connected,
+        }, HTTPStatus.OK
+
+    def _update_project_services(self) -> tuple[dict, HTTPStatus]:
+        """Install the latest project release and rebuild its Docker services."""
+        if not self.remote_executor.is_connected:
+            return {"error": "No active SSH connection."}, HTTPStatus.BAD_REQUEST
+
+        if not self._project_update_lock.acquire(blocking=False):
+            return {
+                "error": "A Scorpio services update is already running."
+            }, HTTPStatus.CONFLICT
+
+        try:
+            latest_version = self.github_client.get_latest_release().version
+        except Exception as error:
+            logging.error("Error checking Scorpio Project release: %s", error)
+            self._project_update_lock.release()
+            return {
+                "error": "Unable to determine the latest Scorpio Project release."
+            }, HTTPStatus.BAD_GATEWAY
+
+        previous_version = self._installed_project_version()
+        release_tag = shlex.quote(latest_version)
+        project_dir = "~/.local/share/scorpio/Scorpio-Project"
+        command = (
+            "mkdir -p ~/.local/share/scorpio && "
+            f"if [ ! -d {project_dir}/.git ]; then "
+            f"git clone --depth 1 --branch {release_tag} "
+            "https://github.com/ScorpioIoTUC/Scorpio-Project.git "
+            f"{project_dir}; "
+            "else "
+            f"git -C {project_dir} fetch --depth 1 origin refs/tags/{release_tag} && "
+            f"git -C {project_dir} checkout --force FETCH_HEAD; "
+            "fi && "
+            f"cd {project_dir} && "
+            "docker compose -f deploy/docker-compose.yml up -d "
+            "--build --force-recreate && "
+            "current_user=$(whoami) && "
+            "sudo cp decoder/lora-decoder/lora-decoder.service "
+            '"/etc/systemd/system/lora-decoder@${current_user}.service" && '
+            "sudo systemctl daemon-reload && "
+            'sudo systemctl restart "lora-decoder@${current_user}.service" && '
+            'sudo systemctl is-active --quiet "lora-decoder@${current_user}.service"'
+        )
+
+        output_tail: deque[str] = deque(maxlen=20)
+        try:
+            for line in self.remote_executor.stream(command):
+                if line.strip():
+                    output_tail.append(line.strip())
+            self.storage_handler.update_scorpio_project_version(latest_version)
+        except (ConnectionError, RuntimeError, OSError) as error:
+            details = "\n".join(output_tail) or str(error)
+            logging.error("Error updating Scorpio services: %s", details)
+            return {
+                "error": "Failed to update and rebuild Scorpio services.",
+                "details": details,
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        finally:
+            self._project_update_lock.release()
+
+        changed = previous_version != latest_version
+        return {
+            "message": (
+                "Scorpio services updated successfully."
+                if changed
+                else "Scorpio services rebuilt successfully."
+            ),
+            "previous_version": previous_version,
+            "installed_version": latest_version,
+            "services_recreated": True,
+        }, HTTPStatus.OK
+
     def do_GET(self):
         # Get endpoints
         request_url = urlsplit(self.path)
@@ -492,6 +603,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(*self._get_setup_token())
         elif path == "/scorpio/update":
             self.send_json(self.status_manager.get_pypi_last_version())
+        elif path == "/scorpio/infrastructure/update":
+            self.send_json(*self._get_project_update_status())
         else:
             super().do_GET()
 
@@ -526,6 +639,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(*self._set_setup_token(body))
         elif self.path == "/scorpio/update":
             self.send_json(*self._update_scorpio())
+        elif self.path == "/scorpio/infrastructure/update":
+            self.send_json(*self._update_project_services())
         else:
             self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found.")
 
