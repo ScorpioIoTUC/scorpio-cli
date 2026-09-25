@@ -17,6 +17,18 @@
     box-shadow: 0 0 0 2px var(--color-primary);
 }
 
+.debug-toggle {
+    flex-direction: row !important;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 .25rem;
+    cursor: pointer;
+}
+
+.debug-toggle input {
+    accent-color: var(--color-primary);
+}
+
 /* LOGS */
 
 .logs-panel {

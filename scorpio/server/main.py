@@ -8,6 +8,7 @@ from functools import partial
 from http import HTTPStatus
 import logging
 import shlex
+from urllib.parse import parse_qs, urlsplit
 from scorpio.server.config import (
     PORT,
     SERVER_URL,
@@ -214,7 +215,7 @@ class Handler(SimpleHTTPRequestHandler):
         }
         self.storage_handler.update(storage)
 
-    def _send_live_logs(self):
+    def _send_live_logs(self, include_debug: bool = False):
         # Check if the ssh client is active
         try:
             self.send_response(HTTPStatus.OK)
@@ -224,7 +225,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", UI_URL)
             self.end_headers()
 
-            for event in self.live_logs_manager.stream():
+            for event in self.live_logs_manager.stream(include_debug=include_debug):
                 self.wfile.write(f"data: {json.dumps(event)}\n\n".encode("utf-8"))
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, ConnectionError, RuntimeError):
@@ -303,40 +304,108 @@ class Handler(SimpleHTTPRequestHandler):
             "token": token,
         }, HTTPStatus.OK
 
+    @staticmethod
+    def _normalize_api_base_url(value: str) -> str | None:
+        """Validate and normalize the API base URL stored on the station."""
+        if any(character in value for character in ("\r", "\n", "\0")):
+            return None
+
+        normalized = value.strip().rstrip("/")
+        if normalized.endswith("/packets"):
+            normalized = normalized.removesuffix("/packets").rstrip("/")
+
+        parsed = urlsplit(normalized)
+        try:
+            parsed.port
+        except ValueError:
+            return None
+
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+        return normalized
+
     def _set_setup_token(self, body) -> tuple[dict, HTTPStatus]:
         storage = self.storage_handler.get()
 
-        api_url = body.get("api_url")
+        raw_api_url = body.get("api_url")
         token = body.get("token")
-        if not api_url or not token:
+        if not isinstance(raw_api_url, str) or not isinstance(token, str):
             return {
                 "error": "Missing required fields: api_url and token are required."
             }, HTTPStatus.BAD_REQUEST
-        # Read the .env file from Scorpio Project and update with the new token and api_url
-        env_file_path = SCORPIO_PROJECT_DIR / ".env"
-        # Read the existing .env file
-        env_vars = {}
-        if env_file_path.exists():
-            with open(env_file_path, "r") as env_file:
-                for line in env_file:
-                    if "=" in line:
-                        key, value = line.strip().split("=", 1)
-                        env_vars[key] = value
-        # Update the token and api_url
-        env_vars["SCORPIO_API_URL"] = api_url
-        env_vars["SCORPIO_API_TOKEN"] = token
-        # Write the updated .env file
-        with open(env_file_path, "w") as env_file:
-            for key, value in env_vars.items():
-                env_file.write(f"{key}={value}\n")
-        # Update the storage with the new token and api_url
+
+        api_url = self._normalize_api_base_url(raw_api_url)
+        token = token.strip()
+        if (
+            api_url is None
+            or not token
+            or any(character in token for character in ("\r", "\n", "\0"))
+        ):
+            return {
+                "error": "A valid API base URL and station key are required."
+            }, HTTPStatus.BAD_REQUEST
+
+        # Update the .env file in the remote Raspberry Pi
+        if not self.remote_executor.is_connected:
+            return {"error": "No active SSH connection."}, HTTPStatus.BAD_REQUEST
+
+        api_assignment = shlex.quote(f"SCORPIO_API_URL={api_url}")
+        token_assignment = shlex.quote(f"SCORPIO_STATION_KEY={token}")
+        remote_command = (
+            "cd ~/.local/share/scorpio/Scorpio-Project && "
+            "touch .env && "
+            "tmp_file=$(mktemp .env.XXXXXX) && "
+            "awk '!/^(SCORPIO_API_URL|SCORPIO_STATION_KEY|SCORPIO_API_TOKEN)=/' "
+            ".env > \"$tmp_file\" && "
+            f"printf '%s\\n' {api_assignment} {token_assignment} >> \"$tmp_file\" && "
+            "mv \"$tmp_file\" .env && "
+            "docker compose -f deploy/docker-compose.yml up -d "
+            "--force-recreate data_export"
+        )
+        try:
+            for _ in self.remote_executor.stream(remote_command):
+                pass
+        except (ConnectionError, RuntimeError, OSError) as e:
+            logging.error("Error updating .env on remote host: %s", e)
+            return {
+                "error": "Failed to update the remote settings or restart data-export."
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+        # Read the .env file with the new values and update the storage
+        remote_command = "cat ~/.local/share/scorpio/Scorpio-Project/.env"
+        try:
+            env_content = ""
+            for line in self.remote_executor.stream(remote_command):
+                env_content += line + "\n"
+            # Parse the .env content and update the storage
+            env_lines = env_content.strip().splitlines()
+            env_dict = {}
+            for line in env_lines:
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    env_dict[key.strip()] = value.strip()
+            api_url = env_dict.get("SCORPIO_API_URL")
+            token = env_dict.get("SCORPIO_STATION_KEY")
+        except (ConnectionError, RuntimeError, OSError) as e:
+            logging.error("Error reading .env on remote host: %s", e)
+            return {
+                "error": "Failed to read .env on remote host."
+            }, HTTPStatus.INTERNAL_SERVER_ERROR
+
         storage["token_config"] = {
             "api_url": api_url,
             "token": token,
         }
         self.storage_handler.update(storage)
-
-        return {"message": "Setup token updated."}, HTTPStatus.OK
+        return {
+            "message": "API settings updated and data-export restarted."
+        }, HTTPStatus.OK
 
     def _update_scorpio(self) -> tuple[dict, HTTPStatus]:
         previous_version = Host.get_package_version("scorpio-cli")
@@ -401,23 +470,27 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         # Get endpoints
-        if self.path == "/version":
+        request_url = urlsplit(self.path)
+        path = request_url.path
+        if path == "/version":
             self.send_json(self._get_system_version())
-        elif self.path == "/scorpio/setup/status":
+        elif path == "/scorpio/setup/status":
             self.send_json(self._get_setup_status())
-        elif self.path == "/scorpio/setup/events":
+        elif path == "/scorpio/setup/events":
             self._send_setup_events()
-        elif self.path == "/scorpio/stop":
+        elif path == "/scorpio/stop":
             self.send_json(*self._stop_scorpio())
-        elif self.path == "/scorpio/start":
+        elif path == "/scorpio/start":
             self.send_json(*self._start_scorpio())
-        elif self.path == "/scorpio/logs/live":
-            self._send_live_logs()
-        elif self.path == "/discord/settings":
+        elif path == "/scorpio/logs/live":
+            query = parse_qs(request_url.query)
+            include_debug = query.get("debug", ["false"])[0].lower() == "true"
+            self._send_live_logs(include_debug=include_debug)
+        elif path == "/discord/settings":
             self.send_json(self.discord_handler.get_settings())
-        elif self.path == "/scorpio/setup/token":
+        elif path == "/scorpio/setup/token":
             self.send_json(*self._get_setup_token())
-        elif self.path == "/scorpio/update":
+        elif path == "/scorpio/update":
             self.send_json(self.status_manager.get_pypi_last_version())
         else:
             super().do_GET()
