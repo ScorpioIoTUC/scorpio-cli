@@ -5,7 +5,13 @@ import threading
 
 from datetime import datetime, timezone
 from .types import SetupLog
-from .utils import parse_setup_log
+from .utils import (
+    clean_setup_line,
+    infer_setup_layer,
+    is_docker_build_output,
+    is_error_output,
+    parse_setup_log,
+)
 from collections.abc import Callable
 from ..remote_executor import RemoteExecutor
 
@@ -20,6 +26,8 @@ class SetupManager:
         self.error: str | None = None
         self.started_at: str | None = None
         self.finished_at: str | None = None
+        self._current_layer = "setup"
+        self._suppress_raw_output = False
 
     def _publish(self, log: SetupLog) -> None:
         with self._lock:
@@ -58,14 +66,30 @@ class SetupManager:
 
     def _handle_output(self, line: str) -> None:
         parsed_log = parse_setup_log(line)
-        if parsed_log is None and line.strip():
+        if parsed_log is not None:
+            self._current_layer = parsed_log.step_id or parsed_log.module or "setup"
+            self._suppress_raw_output = parsed_log.step_id == "gr_lora_sdr" or (
+                parsed_log.step_id == "docker_compose"
+                and "running docker compose" in parsed_log.message.lower()
+            )
+            if (
+                parsed_log.step_id == "gr_lora_sdr"
+                and parsed_log.level.lower() not in {"error", "critical"}
+            ):
+                return
+
+        cleaned_line = clean_setup_line(line)
+        if parsed_log is None and cleaned_line:
+            if (self._suppress_raw_output or is_docker_build_output(cleaned_line)):
+                if not is_error_output(cleaned_line):
+                    return
             parsed_log = SetupLog(
-                level="info",
+                level="error" if is_error_output(cleaned_line) else "info",
                 module="setup",
                 step=None,
                 total_steps=None,
-                step_id="command",
-                message=line.strip(),
+                step_id=infer_setup_layer(cleaned_line, self._current_layer),
+                message=cleaned_line,
                 timestamp=datetime.now(timezone.utc).isoformat(),
             )
 
@@ -97,6 +121,8 @@ class SetupManager:
             self.status = "running"
             self._logs.clear()
             self.error = None
+            self._current_layer = "setup"
+            self._suppress_raw_output = False
 
             self.started_at = datetime.now(timezone.utc).isoformat()
             self.finished_at = None

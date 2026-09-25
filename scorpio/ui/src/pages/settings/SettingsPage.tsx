@@ -19,6 +19,7 @@ export function SettingsPage() {
   const [channelId, setChannelId] = useState("");
   const [gap, setGap] = useState(5);
   const [message, setMessage] = useState("");
+  const [savingScorpio, setSavingScorpio] = useState(false);
 
   useEffect(() => {
     getDiscordSettings().then((value) => {
@@ -76,13 +77,26 @@ export function SettingsPage() {
   async function saveScorpioSetup(event: FormEvent) {
     event.preventDefault();
     const token = scorpioToken.trim();
-    const apiUrl = scorpioApiUrl.trim() || undefined;
-    if (!token) {
-      setMessage("Scorpio API token cannot be empty.");
+    const apiUrl = scorpioApiUrl.trim();
+    if (!token || !apiUrl) {
+      setMessage("The API base URL and station key are required.");
       return;
     }
-    const result = await updateScorpioTokenSetup(token, apiUrl);
-    setMessage(result.message);
+
+    setSavingScorpio(true);
+    try {
+      const result = await updateScorpioTokenSetup(token, apiUrl);
+      setMessage(result.message);
+      setScorpioApiUrl(apiUrl.replace(/\/packets\/?$/, "").replace(/\/$/, ""));
+    } catch (requestError) {
+      setMessage(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not update the Scorpio API settings.",
+      );
+    } finally {
+      setSavingScorpio(false);
+    }
   }
 
   return (
@@ -93,16 +107,20 @@ export function SettingsPage() {
         <span className="card-label">Settings</span>
         {/* Token authentication */}
         <h1>Station settings</h1>
-        <p>Configure the station settings below. The Scorpio API token is required for the station to communicate with the Scorpio server.</p>
+        <p>Configure the API used by the Raspberry Pi to publish Scorpio packets.</p>
         <form className="settings-card" onSubmit={(e) => saveScorpioSetup(e)}>
-          <h2>Scorpio API token</h2>
-          <input type={showScorpioToken ? "text" : "password"} value={scorpioToken} onChange={(event) => setScorpioToken(event.target.value)} placeholder="Scorpio API token" required />
+          <h2>Scorpio API connection</h2>
+          <p>Enter the Station Key</p>
+          <input type={showScorpioToken ? "text" : "password"} value={scorpioToken} onChange={(event) => setScorpioToken(event.target.value)} placeholder="Station UUID.key" required />
+          <p>Enter only the API base URL.</p>
           <label>
             <input type="checkbox" checked={showScorpioToken} onChange={(event) => setShowScorpioToken(event.target.checked)} />
             Show token
           </label>
-          <input type="text" value={scorpioApiUrl} onChange={(event) => setScorpioApiUrl(event.target.value)} placeholder="Scorpio API URL" required />
-          <button type="submit">Save</button>
+          <input type="url" value={scorpioApiUrl} onChange={(event) => setScorpioApiUrl(event.target.value)} placeholder="http://192.168.1.111:3000" required />
+          <button type="submit" disabled={savingScorpio}>
+            {savingScorpio ? "Saving and restarting..." : "Save"}
+          </button>
         </form>
 
         {/* Discord configuration */}

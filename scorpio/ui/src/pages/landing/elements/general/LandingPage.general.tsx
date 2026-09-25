@@ -8,6 +8,7 @@ import {
 import type { DockerLog, SetupLog, SetupStatus } from "../../../../api/setup/setupTypes";
 import { clearSshSession } from "../../../../helpers/sshSessionStorage";
 import LandingPageStatus from "../status/LandingPageStatus";
+import LoadingView from "../../views/LoadingView";
 import "./LandingPage.general.css";
 
 const labels = {
@@ -38,6 +39,10 @@ export default function LandingPageGeneral() {
   const [service, setService] = useState("all");
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
   const [filterNow, setFilterNow] = useState(Date.now());
+  const [debugEnabled, setDebugEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   function redirectToLogin() {
     clearSshSession();
@@ -69,13 +74,21 @@ export default function LandingPageGeneral() {
         }
         setStatus(value);
         setSetupLogs(value.logs);
+        setLoadError(null);
+        setIsLoading(false);
       }
-    }).catch(() => setError("Could not retrieve the setup status."));
+    }).catch(() => {
+      if (!active) return;
+      setLoadError("Could not retrieve the station status.");
+      setIsLoading(false);
+    });
     const unsubscribe = subscribeToSetup((event) => {
       if (!active) return;
       if (event.type === "status") {
         setStatus(event.data);
         setSetupLogs(event.data.logs);
+        setLoadError(null);
+        setIsLoading(false);
       } else setSetupLogs((current) => [...current, event.data]);
     }, () => {
       if (!active) return;
@@ -85,18 +98,19 @@ export default function LandingPageGeneral() {
       active = false;
       unsubscribe();
     };
-  }, []);
+  }, [loadAttempt]);
 
   useEffect(() => {
     // Start the Docker log stream only after setup is complete.
     if (status?.status !== "completed") return undefined;
+    setDockerLogs([]);
     const unsubscribe = subscribeToDockerLogs((event) => setDockerLogs(
       (current) => [...current, event.data]),
       () => {
         void handleConnectionError("The connection to the Docker logs was temporarily lost.");
-      });
+      }, debugEnabled);
     return unsubscribe;
-  }, [status?.status]);
+  }, [debugEnabled, status?.status]);
 
   useEffect(() => {
     if (timeRange === "all") return undefined;
@@ -109,6 +123,7 @@ export default function LandingPageGeneral() {
     const cutoff = range === null ? null : filterNow - range;
 
     return dockerLogs
+      .filter((log) => debugEnabled || log.level?.toLowerCase() !== "debug")
       .filter((log) => service === "all" || log.service === service)
       .filter((log) => {
         if (cutoff === null) return true;
@@ -121,7 +136,7 @@ export default function LandingPageGeneral() {
         const rightTime = right.timestamp ? Date.parse(right.timestamp) : 0;
         return rightTime - leftTime;
       });
-  }, [dockerLogs, filterNow, service, timeRange]);
+  }, [debugEnabled, dockerLogs, filterNow, service, timeRange]);
 
   const services = Array.from(new Set(dockerLogs.map((log) => log.service))).sort();
   const serviceColorByName = useMemo(() => Object.fromEntries(
@@ -158,6 +173,17 @@ export default function LandingPageGeneral() {
         ? reason.message
         : "Could not reboot the Raspberry Pi.");
     }
+  }
+
+  if (isLoading || loadError) {
+    return <LoadingView
+      error={loadError}
+      onRetry={() => {
+        setIsLoading(true);
+        setLoadError(null);
+        setLoadAttempt((current) => current + 1);
+      }}
+    />;
   }
 
   return <>
@@ -228,6 +254,14 @@ export default function LandingPageGeneral() {
               {Object.entries(timeRanges).map(([value, range]) =>
                 <option key={value} value={value}>{range.label}</option>)}
             </select>
+          </label>
+          <label className="debug-toggle">
+            <input
+              type="checkbox"
+              checked={debugEnabled}
+              onChange={(event) => setDebugEnabled(event.target.checked)}
+            />
+            Show debug logs
           </label>
         </div>
         <LogRows logs={visibleLogs} service sourceColors={serviceColorByName} />

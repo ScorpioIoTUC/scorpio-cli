@@ -56,9 +56,11 @@ export function rebootHost(): Promise<{ message: string }> {
 export function subscribeToDockerLogs(
   onLog: (event: DockerLogEvent) => void,
   onError: () => void,
+  includeDebug = false,
 ): () => void {
   // Subscribe to live Docker service logs through SSE.
-  const events = new EventSource("/scorpio/logs/live");
+  const query = includeDebug ? "?debug=true" : "";
+  const events = new EventSource(`/scorpio/logs/live${query}`);
 
   events.onmessage = (message) => {
     try {
@@ -80,7 +82,7 @@ export function getScorpioTokenSetup(): Promise<{ api_url: string, token: string
 }
 
 // Function to update the configuration token on the server
-export function updateScorpioTokenSetup(newToken: string, apiUrl: string | undefined): Promise<{ message: string }> {
+export function updateScorpioTokenSetup(newToken: string, apiUrl: string): Promise<{ message: string }> {
   return requestJson("/scorpio/setup/token", {
     method: "POST",
     body: JSON.stringify({ token: newToken, api_url: apiUrl }),
