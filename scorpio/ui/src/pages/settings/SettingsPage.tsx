@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
+import { FiHome } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import {
   getDiscordSettings, removeDiscord, setDiscordAlertGap, setDiscordChannel, setupDiscord,
   type DiscordSettings,
@@ -7,7 +9,7 @@ import { getScorpioTokenSetup, updateScorpioTokenSetup } from "../../api/setup/s
 
 
 import { Brand } from "../../components/Brand/Brand";
-import "./Settings.css";
+import "./SettingsPage.css";
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<DiscordSettings | null>(null);
@@ -20,6 +22,7 @@ export function SettingsPage() {
   const [gap, setGap] = useState(5);
   const [message, setMessage] = useState("");
   const [savingScorpio, setSavingScorpio] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getDiscordSettings().then((value) => {
@@ -101,7 +104,12 @@ export function SettingsPage() {
 
   return (
     <main className="settings-page">
-      <header className="settings-header"><Brand /><a href="#/">Back to Home</a></header>
+      <header className="updates-header">
+        <Brand />
+        <button type="button" onClick={() => navigate("/")} aria-label="Back to Home">
+          <FiHome size={20} aria-hidden="true" />
+        </button>
+      </header>
       {message && <div className="settings-message">{message}</div>}
       <section className="settings-content">
         <span className="card-label">Settings</span>
