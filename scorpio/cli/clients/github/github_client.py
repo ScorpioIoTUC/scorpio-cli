@@ -3,6 +3,7 @@ import logging
 import shutil
 import urllib.error
 import urllib.request
+import time
 from pathlib import Path
 
 from .components import GithubReleaseInstaller
@@ -11,6 +12,7 @@ from .github_types import Release
 
 
 logger = logging.getLogger(__name__)
+_RELEASE_CACHE_TTL = 600  # 10 minutes
 
 
 class GithubClient(GithubContract):
@@ -31,14 +33,22 @@ class GithubClient(GithubContract):
             metadata_path=metadata_path,
             download_release=self.download_release,
         )
+        self._latest_release_cache: Release | None = None
+        self._cache_expires_at = 0.0
 
     def get_latest_release(self) -> Release:
+        now = time.monotonic()
+        if self._latest_release_cache and now < self._cache_expires_at:
+            return self._latest_release_cache
+
         url = f"{self.api_url}/releases/latest"
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": self.user_agent,
+            "X-Github-Api-Version": "2022-11-28",
+        }
         logger.debug("Checking latest Scorpio release from %s", url)
-        request = urllib.request.Request(
-            url,
-            headers={"User-Agent": self.user_agent},
-        )
+        request = urllib.request.Request(url, headers=headers)
 
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
             payload = json.load(response)

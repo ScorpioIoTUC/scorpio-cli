@@ -16,7 +16,44 @@
 .landing-header__actions {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: .45rem;
+}
+
+.header-icon-button {
+    display: grid;
+    width: 2.55rem;
+    height: 2.55rem;
+    place-items: center;
+    border: 0;
+    border-radius: .7rem;
+    color: var(--color-muted);
+    background: transparent;
+    cursor: pointer;
+}
+
+.header-icon-button:hover {
+    color: var(--color-primary);
+    background: #f1efff;
+}
+
+.header-icon-button:disabled {
+    cursor: wait;
+    opacity: .5;
+}
+
+.header-icon-button--notification {
+    position: relative;
+}
+
+.notification-badge {
+    position: absolute;
+    top: .42rem;
+    right: .42rem;
+    width: .48rem;
+    height: .48rem;
+    border: 2px solid var(--color-surface);
+    border-radius: 50%;
+    background: #df4051;
 }
 
 .connection-status {

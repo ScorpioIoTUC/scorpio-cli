@@ -1,28 +1,24 @@
-export type ScorpioUpdateStatus = {
-  current_version: string;
-  latest_version: string;
-  upload_time: string;
-  need_to_update: boolean;
-  error?: string;
-};
-
-export type ScorpioUpdateResult = {
-  message: string;
-  previous_version: string;
+export type ComponentUpdateStatus = {
   installed_version: string;
-  restart_required: boolean;
-};
-
-export type ProjectUpdateStatus = {
-  current_version: string;
   latest_version: string;
   need_to_update: boolean;
+};
+
+export type InfraUpdateStatus = {
+  scorpio_cli: ComponentUpdateStatus;
+  scorpio_project: ComponentUpdateStatus;
   ssh_active: boolean;
 };
 
-export type ProjectUpdateResult = {
+export type UpdatedComponentStatus = ComponentUpdateStatus & {
+  updated: boolean;
+};
+
+export type InfraUpdateResult = {
   message: string;
-  previous_version: string;
-  installed_version: string;
-  services_recreated: boolean;
+  scorpio_cli: UpdatedComponentStatus;
+  scorpio_project: UpdatedComponentStatus & {
+    services_recreated: boolean;
+  };
+  ssh_active: boolean;
 };
